@@ -106,7 +106,7 @@ impl Config {
             Some(p) => {
                 let raw = std::fs::read_to_string(p)?;
                 let cfg: Config = toml::from_str(&raw)?;
-                println!("Loaded config from: {}", p.display());
+                tracing::info!("Loaded config from: {}", p.display());
                 Ok(cfg)
             }
         }

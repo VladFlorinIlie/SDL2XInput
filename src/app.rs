@@ -46,41 +46,26 @@ impl App {
         };
         blocked_devices.extend(Self::parse_filter_devices(&args.filter_devices));
 
-        println!("Initializing SDL3...");
+        tracing::info!("Initializing SDL3...");
         let sdl_context = sdl3::init()?;
         let gamepad_subsystem = sdl_context.gamepad()?;
         let event_pump = sdl_context.event_pump()?;
 
-        println!("Connecting to Viiper at {}...", args.viiper_address);
+        tracing::info!("Connecting to Viiper at {}...", args.viiper_address);
         let viiper_manager = ViiperManager::connect(&args.viiper_address).await?;
         
         let tick_duration = Duration::from_micros(1_000_000 / args.polling_rate as u64);
-        println!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
+        tracing::info!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
 
-        println!("Blocking {} VID:PID pair(s):", blocked_devices.len());
+        tracing::info!("Blocking {} VID:PID pair(s):", blocked_devices.len());
         for (vid, pid) in &blocked_devices {
-            println!("  {:04X}:{:04X}", vid, pid);
+            tracing::info!("  {:04X}:{:04X}", vid, pid);
         }
 
         let quit_flag = Arc::new(AtomicBool::new(false));
         let mut _tray = None;
 
         if !args.no_tray {
-            #[cfg(target_os = "windows")]
-            unsafe {
-                use windows_sys::Win32::System::Console::{FreeConsole, GetConsoleProcessList};
-                let mut process_list = [0u32; 2];
-                let num_processes = GetConsoleProcessList(process_list.as_mut_ptr(), 2);
-                
-                // If there is only 1 process attached to this console, we were 
-                // launched via double-click from Explorer.
-                // If > 1, we were launched from an existing CLI (like PowerShell).
-                // We only detach the console if we were double-clicked!
-                if num_processes <= 1 {
-                    FreeConsole();
-                }
-            }
-
             let mut tray = TrayItem::new("SDL2XInput", IconSource::Resource("icon")).unwrap();
             tray.add_label("SDL2XInput Running").unwrap();
             
@@ -113,7 +98,7 @@ impl App {
             .filter_map(|s| {
                 let parts: Vec<&str> = s.splitn(2, ':').collect();
                 if parts.len() != 2 {
-                    eprintln!("Warning: ignoring invalid --filter-device value '{}' (expected VID:PID hex)", s);
+                    tracing::warn!("Warning: ignoring invalid --filter-device value '{}' (expected VID:PID hex)", s);
                     return None;
                 }
                 let vid = u16::from_str_radix(parts[0].trim_start_matches("0x"), 16).ok()?;
@@ -124,12 +109,12 @@ impl App {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        println!("Ready! Reading SDL3 inputs and forwarding to Viiper...");
-        println!("Press Ctrl+C to exit.");
+        tracing::info!("Ready! Reading SDL3 inputs and forwarding to Viiper...");
+        tracing::info!("Press Ctrl+C to exit.");
 
         loop {
             if self.quit_flag.load(Ordering::SeqCst) {
-                println!("Quit signal received from tray. Exiting...");
+                tracing::info!("Quit signal received from tray. Exiting...");
                 return Ok(());
             }
 
@@ -142,7 +127,7 @@ impl App {
                         self.handle_device_removed(which);
                     }
                     sdl3::event::Event::Quit { .. } => {
-                        println!("Exiting...");
+                        tracing::info!("Exiting...");
                         return Ok(());
                     }
                     _ => {}
@@ -164,17 +149,17 @@ impl App {
             let name = self.gamepad_subsystem.name_for_id(jid)
                 .map(|n| n)
                 .unwrap_or_else(|_| "unknown".to_string());
-            println!("Ignoring filtered device ({:04X}:{:04X}) - {}", vid, pid, name);
+            tracing::info!("Ignoring filtered device ({:04X}:{:04X}) - {}", vid, pid, name);
             return;
         }
 
         if self.active_sessions.len() >= self.args.max_controllers {
-            println!(
+            tracing::info!(
                 "Ignoring additional controller (Max limit {} reached): ID {} ({:04X}:{:04X})",
                 self.args.max_controllers, which, vid, pid
             );
             if let Ok(path) = self.gamepad_subsystem.path_for_id(jid) {
-                println!("  Device Path: {}", path);
+                tracing::info!("  Device Path: {}", path);
             }
             return;
         }
@@ -182,7 +167,7 @@ impl App {
         if !self.active_sessions.contains_key(&which) {
             match self.gamepad_subsystem.open(jid) {
                 Ok(gp) => {
-                    println!("Opened physical gamepad: {:?}", gp.name());
+                    tracing::info!("Opened physical gamepad: {:?}", gp.name());
                     match self.viiper_manager.create_virtual_xbox_controller("Virtual Steam Controller").await {
                         Ok((dev_stream, rumble_rx)) => {
                             self.active_sessions.insert(which, ActiveSession {
@@ -191,17 +176,17 @@ impl App {
                                 rumble_rx,
                             });
                         }
-                        Err(e) => println!("Failed to create virtual device: {}", e),
+                        Err(e) => tracing::error!("Failed to create virtual device: {}", e),
                     }
                 }
-                Err(e) => println!("Failed to open gamepad: {}", e),
+                Err(e) => tracing::error!("Failed to open gamepad: {}", e),
             }
         }
     }
 
     fn handle_device_removed(&mut self, which: u32) {
         if self.active_sessions.remove(&which).is_some() {
-            println!("Gamepad Removed: ID {} (Virtual controller destroyed)", which);
+            tracing::info!("Gamepad Removed: ID {} (Virtual controller destroyed)", which);
         }
     }
 

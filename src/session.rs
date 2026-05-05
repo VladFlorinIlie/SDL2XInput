@@ -22,7 +22,7 @@ impl ActiveSession {
         let mut istate = Xbox360Input::default();
         crate::mapping::update_from_sdl_gamepad(&mut istate, &self.gamepad, cfg);
         if let Err(e) = self.dev_stream.send(&istate).await {
-            println!("Error sending state to viiper: {}", e);
+            tracing::error!("Error sending state to viiper: {}", e);
         }
     }
 }

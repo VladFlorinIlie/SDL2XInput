@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-sdl3-sys = { version = "0.6.3+SDL-3.4.4", features = ["build-from-source", "debug-impls"] }
+sdl3-sys = { version = "0.6.3", features = ["build-from-source-static", "debug-impls"] }
 sdl3 = { version = "0.18.0", features = ["hidapi"] }
 viiper-client = { version = "0.6.0", features = ["async"] }
 tokio = { version = "1.0", features = ["full"] }

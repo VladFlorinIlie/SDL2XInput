@@ -46,9 +46,34 @@ pub struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-    
     let args = Args::parse();
+
+    let mut is_double_click = false;
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows_sys::Win32::System::Console::GetConsoleProcessList;
+        let mut process_list = [0u32; 2];
+        if GetConsoleProcessList(process_list.as_mut_ptr(), 2) <= 1 {
+            is_double_click = true;
+        }
+    }
+
+    if is_double_click && !args.no_tray {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            windows_sys::Win32::System::Console::FreeConsole();
+        }
+
+        let exe_path = std::env::current_exe()?;
+        let log_path = exe_path.with_file_name("sdl2xinput.log");
+        let file = std::fs::OpenOptions::new().create(true).append(true).open(log_path)?;
+        tracing_subscriber::fmt()
+            .with_writer(std::sync::Arc::new(file))
+            .with_ansi(false)
+            .init();
+    } else {
+        tracing_subscriber::fmt().init();
+    }
     
     let mut app = app::App::new(args).await?;
     app.run().await?;
