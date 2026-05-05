@@ -2,7 +2,7 @@ use sdl3::gamepad::{Gamepad, Axis, Button};
 use viiper_client::devices::xbox360::{self, Xbox360Input};
 use crate::config::{Config, XboxButton};
 
-pub fn update_from_sdl_gamepad(istate: &mut Xbox360Input, gp: &Gamepad, cfg: &Config) {
+pub fn update_from_sdl_gamepad(istate: &mut Xbox360Input, gp: &Gamepad, cfg: &Config, deadzone: i16) {
     let mut b: u32 = 0;
 
     // Helper: apply one physical button to its remapped virtual Xbox 360 bit.
@@ -38,15 +38,26 @@ pub fn update_from_sdl_gamepad(istate: &mut Xbox360Input, gp: &Gamepad, cfg: &Co
     istate.rt = ((rt_raw as i32 * 255) / 32767).clamp(0, 255) as u8;
 
     // Sticks — SDL3 Y axis is already inverted (up = negative) so we negate to match XInput
-    let lx = gp.axis(Axis::LeftX);
-    let ly = gp.axis(Axis::LeftY).saturating_neg();
-    let rx = gp.axis(Axis::RightX);
-    let ry = gp.axis(Axis::RightY).saturating_neg();
+    // We also apply a configurable hardware deadzone 
+    // to eliminate micro-jitter from highly sensitive sticks.
+    let lx = apply_deadzone(gp.axis(Axis::LeftX), deadzone);
+    let ly = apply_deadzone(gp.axis(Axis::LeftY).saturating_neg(), deadzone);
+    let rx = apply_deadzone(gp.axis(Axis::RightX), deadzone);
+    let ry = apply_deadzone(gp.axis(Axis::RightY).saturating_neg(), deadzone);
 
     istate.lx = if cfg.axes.invert_left_x  { lx.saturating_neg() } else { lx };
     istate.ly = if cfg.axes.invert_left_y  { ly.saturating_neg() } else { ly };
     istate.rx = if cfg.axes.invert_right_x { rx.saturating_neg() } else { rx };
     istate.ry = if cfg.axes.invert_right_y { ry.saturating_neg() } else { ry };
+}
+
+/// Applies a center deadzone to prevent micro-jitter.
+fn apply_deadzone(val: i16, deadzone: i16) -> i16 {
+    if (val as i32).abs() < (deadzone as i32) {
+        0
+    } else {
+        val
+    }
 }
 
 /// Convert an XboxButton variant to its XInput bitmask bit.

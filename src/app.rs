@@ -56,6 +56,7 @@ impl App {
         
         let tick_duration = Duration::from_micros(1_000_000 / args.polling_rate as u64);
         tracing::info!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
+        tracing::info!("Hardware deadzone: {}", args.deadzone);
 
         tracing::info!("Blocking {} VID:PID pair(s):", blocked_devices.len());
         for (vid, pid) in &blocked_devices {
@@ -197,7 +198,7 @@ impl App {
     async fn tick_sessions(&mut self) {
         for session in self.active_sessions.values_mut() {
             session.apply_rumble().await;
-            session.update_and_send(&self.config).await;
+            session.update_and_send(&self.config, self.args.deadzone).await;
         }
     }
 }

@@ -42,6 +42,11 @@ pub struct Args {
     /// By default, the application runs in the background with a system tray icon.
     #[arg(long, default_value_t = false)]
     pub no_tray: bool,
+
+    /// Hardware deadzone applied to the analog sticks to filter out micro-jitter from highly sensitive controllers.
+    /// Set to 0 to disable the deadzone completely.
+    #[arg(short, long, default_value_t = 1000)]
+    pub deadzone: i16,
 }
 
 #[tokio::main]

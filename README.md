@@ -92,6 +92,7 @@ The redirector can be configured using CLI arguments. Use `--help` to see all op
 * `-p, --polling-rate <HZ>`: Input polling rate (1-1000 Hz). Higher values lower latency but use more CPU (Default: `250`).
 * `-v, --viiper-address <ADDRESS>`: The IP and Port of the VIIPER server (Default: `127.0.0.1:3242`).
 * `-m, --max-controllers <NUMBER>`: Limit the maximum number of active virtual controllers (Default: `1`).
+* `-d, --deadzone <INT>`: Hardware deadzone applied to analog sticks to eliminate micro-jitter (Default: `1000`). Set to `0` to disable completely.
 * `--filter-device <VID:PID>`: Block a specific device by VID:PID (hex, e.g. `045E:028E`). Can be repeated.
 * `--empty-device-filter`: Disables the default Xbox 360 controller blocklist. 
 * `--no-tray`: Force the application to skip creating a system tray icon.

@@ -19,9 +19,9 @@ impl ActiveSession {
         }
     }
 
-    pub async fn update_and_send(&mut self, cfg: &Config) {
+    pub async fn update_and_send(&mut self, cfg: &Config, deadzone: i16) {
         let mut istate = Xbox360Input::default();
-        crate::mapping::update_from_sdl_gamepad(&mut istate, &self.gamepad, cfg);
+        crate::mapping::update_from_sdl_gamepad(&mut istate, &self.gamepad, cfg, deadzone);
         if let Err(e) = self.dev_stream.send(&istate).await {
             tracing::error!("Error sending state to viiper: {}", e);
         }
