@@ -13,6 +13,7 @@ use crate::session::ActiveSession;
 pub struct App {
     args: Args,
     config: Config,
+    tick_duration: Duration,
     _sdl_context: sdl3::Sdl,
     gamepad_subsystem: GamepadSubsystem,
     event_pump: EventPump,
@@ -31,10 +32,14 @@ impl App {
 
         println!("Connecting to Viiper at {}...", args.viiper_address);
         let viiper_manager = ViiperManager::connect(&args.viiper_address).await?;
-
+        
+        let tick_duration = Duration::from_micros(1_000_000 / args.polling_rate as u64);
+        println!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
+        
         Ok(Self {
             args,
             config,
+            tick_duration,
             _sdl_context: sdl_context,
             gamepad_subsystem,
             event_pump,
@@ -65,7 +70,7 @@ impl App {
             }
 
             self.tick_sessions().await;
-            tokio::time::sleep(Duration::from_millis(4)).await;
+            tokio::time::sleep(self.tick_duration).await;
         }
     }
 

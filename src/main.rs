@@ -22,6 +22,10 @@ pub struct Args {
     /// If not provided, the default identity mapping is used.
     #[arg(short, long, value_name = "FILE")]
     pub config: Option<std::path::PathBuf>,
+
+    /// Input polling rate in Hz (1-1000). Higher values give lower latency but use more CPU.
+    #[arg(short, long, default_value_t = 250, value_parser = clap::value_parser!(u32).range(1..=1000))]
+    pub polling_rate: u32,
 }
 
 #[tokio::main]
