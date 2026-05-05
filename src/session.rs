@@ -1,9 +1,11 @@
 use sdl3::gamepad::Gamepad;
 use viiper_client::{AsyncDeviceStream, devices::xbox360::Xbox360Input};
 use tokio::sync::mpsc;
+use crate::config::Config;
 
 pub struct ActiveSession {
     pub gamepad: Gamepad,
+    pub dev_id: String,
     pub dev_stream: AsyncDeviceStream,
     pub rumble_rx: mpsc::UnboundedReceiver<(u8, u8)>,
 }
@@ -17,11 +19,11 @@ impl ActiveSession {
         }
     }
 
-    pub async fn update_and_send(&mut self) {
+    pub async fn update_and_send(&mut self, cfg: &Config, deadzone: i16) {
         let mut istate = Xbox360Input::default();
-        crate::mapping::update_from_sdl_gamepad(&mut istate, &self.gamepad);
+        crate::mapping::update_from_sdl_gamepad(&mut istate, &self.gamepad, cfg, deadzone);
         if let Err(e) = self.dev_stream.send(&istate).await {
-            println!("Error sending state to viiper: {}", e);
+            tracing::error!("Error sending state to viiper: {}", e);
         }
     }
 }
