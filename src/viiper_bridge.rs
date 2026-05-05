@@ -84,11 +84,12 @@ pub struct ViiperManager {
 }
 
 impl ViiperManager {
-    pub fn connect() -> Result<Self> {
+    pub fn connect(addr: Option<&str>) -> Result<Self> {
         let api = get_api()?;
         unsafe {
+            let c_addr = addr.map(|s| std::ffi::CString::new(s).ok()).flatten();
             let config = USBServerConfig {
-                addr: std::ptr::null(),
+                addr: c_addr.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
                 connection_timeout_ms: 30_000,
                 device_handler_connect_timeout_ms: 5_000,
                 write_batch_flush_interval_ms: 1,

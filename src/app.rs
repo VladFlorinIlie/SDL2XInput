@@ -52,7 +52,7 @@ impl App {
         let event_pump = sdl_context.event_pump()?;
 
         tracing::info!("Starting native VIIPER USBIP Server...");
-        let viiper_manager = ViiperManager::connect()?;
+        let viiper_manager = ViiperManager::connect(args.viiper_addr.as_deref())?;
 
         let tick_duration = Duration::from_micros(1_000_000 / args.polling_rate as u64);
         tracing::info!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
@@ -135,7 +135,7 @@ impl App {
 
         match self.gamepad_subsystem.open(jid) {
             Ok(gp) => {
-                tracing::info!("Opened physical gamepad: {:?}", gp.name());
+                tracing::info!("Opened physical gamepad: {}", gp.name().unwrap_or_else(|| "unknown".to_string()));
                 match self.viiper_manager.create_virtual_xbox_controller() {
                     Ok((dev_handle, rumble_rx)) => {
                         self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, rumble_rx));

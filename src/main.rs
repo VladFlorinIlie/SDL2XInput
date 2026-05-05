@@ -43,6 +43,11 @@ pub struct Args {
     /// Set to 0 to disable the deadzone completely.
     #[arg(short, long, default_value_t = 1000)]
     pub deadzone: i16,
+
+    /// IP address and port for the USBIP server (e.g. 127.0.0.1:3241).
+    /// Defaults to NULL (usually 127.0.0.1:3241) if not specified.
+    #[arg(long, value_name = "ADDR")]
+    pub viiper_addr: Option<String>,
 }
 
 fn main() -> Result<()> {
