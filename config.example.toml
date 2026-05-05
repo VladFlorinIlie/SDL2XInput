@@ -1,0 +1,48 @@
+# SDL2XInput Configuration File
+# Copy this file to config.toml and launch with: sdl2xinput.exe --config config.toml
+#
+# All keys are optional. Omitted keys use their default (identity) values.
+
+# ─── Button Remapping ──────────────────────────────────────────────────────────
+# Maps each PHYSICAL button (SDL3 name) to a VIRTUAL Xbox 360 button.
+#
+# Physical button names (left side):
+#   south, east, west, north              → face buttons
+#   start, back, guide                    → menu / system
+#   left_stick, right_stick               → stick clicks
+#   left_shoulder, right_shoulder         → bumpers
+#   dpad_up, dpad_down, dpad_left, dpad_right
+#
+# Valid virtual Xbox 360 targets (right side):
+#   a, b, x, y
+#   start, back, guide
+#   left_stick, right_stick
+#   left_shoulder, right_shoulder
+#   dpad_up, dpad_down, dpad_left, dpad_right
+
+[buttons]
+# Default layout (Xbox-style, no remapping needed):
+# south  = "a"
+# east   = "b"
+# west   = "x"
+# north  = "y"
+
+# ── Example: Nintendo Switch Pro Controller layout (swap A↔B and X↔Y) ──
+# south = "b"
+# east  = "a"
+# west  = "y"
+# north = "x"
+
+# ── Example: Remap Guide button to Start ──
+# guide = "start"
+
+# ─── Axis / Trigger Tweaks ────────────────────────────────────────────────────
+[axes]
+# Invert individual stick axes (useful for flight sims, etc.)
+# invert_left_y  = false
+# invert_right_y = false
+# invert_left_x  = false
+# invert_right_x = false
+
+# Swap left and right triggers
+# swap_triggers  = false

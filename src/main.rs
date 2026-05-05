@@ -1,4 +1,5 @@
 mod app;
+mod config;
 mod mapping;
 mod viiper_bridge;
 mod session;
@@ -16,6 +17,11 @@ pub struct Args {
     /// Maximum number of active controllers allowed
     #[arg(short, long, default_value_t = 1)]
     pub max_controllers: usize,
+
+    /// Path to a TOML config file for button remapping and axis tweaks.
+    /// If not provided, the default identity mapping is used.
+    #[arg(short, long, value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
 }
 
 #[tokio::main]

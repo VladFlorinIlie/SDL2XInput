@@ -6,12 +6,14 @@ use sdl3::sys::joystick::SDL_JoystickID;
 use sdl3::EventPump;
 
 use crate::Args;
+use crate::config::Config;
 use crate::viiper_bridge::ViiperManager;
 use crate::session::ActiveSession;
 
 pub struct App {
     args: Args,
-    _sdl_context: sdl3::Sdl, // Keep alive for the subsystems
+    config: Config,
+    _sdl_context: sdl3::Sdl,
     gamepad_subsystem: GamepadSubsystem,
     event_pump: EventPump,
     viiper_manager: ViiperManager,
@@ -20,16 +22,19 @@ pub struct App {
 
 impl App {
     pub async fn new(args: Args) -> Result<Self> {
+        let config = Config::load(args.config.as_deref())?;
+
         println!("Initializing SDL3...");
         let sdl_context = sdl3::init()?;
         let gamepad_subsystem = sdl_context.gamepad()?;
         let event_pump = sdl_context.event_pump()?;
-        
+
         println!("Connecting to Viiper at {}...", args.viiper_address);
         let viiper_manager = ViiperManager::connect(&args.viiper_address).await?;
-        
+
         Ok(Self {
             args,
+            config,
             _sdl_context: sdl_context,
             gamepad_subsystem,
             event_pump,
@@ -58,7 +63,7 @@ impl App {
                     _ => {}
                 }
             }
-            
+
             self.tick_sessions().await;
             tokio::time::sleep(Duration::from_millis(4)).await;
         }
@@ -66,7 +71,7 @@ impl App {
 
     async fn handle_device_added(&mut self, which: u32) {
         let jid = SDL_JoystickID(which);
-        
+
         if let Ok(name) = self.gamepad_subsystem.name_for_id(jid) {
             if name.contains("Virtual Steam Controller") || name.contains("Xbox 360") {
                 println!("Ignoring Xbox 360 Controller (to prevent loop): {}", name);
@@ -75,13 +80,13 @@ impl App {
         }
 
         if self.active_sessions.len() >= self.args.max_controllers {
-            println!("Ignoring additional controller (Max limit {} reached): ID {}", self.args.max_controllers, which);
-            if let Ok(path) = self.gamepad_subsystem.path_for_id(jid) {
-                println!("  Device Path: {}", path);
-            }
+            println!(
+                "Ignoring additional controller (Max limit {} reached): ID {}",
+                self.args.max_controllers, which
+            );
             return;
         }
-        
+
         if !self.active_sessions.contains_key(&which) {
             match self.gamepad_subsystem.open(jid) {
                 Ok(gp) => {
@@ -111,7 +116,7 @@ impl App {
     async fn tick_sessions(&mut self) {
         for session in self.active_sessions.values_mut() {
             session.apply_rumble().await;
-            session.update_and_send().await;
+            session.update_and_send(&self.config).await;
         }
     }
 }
