@@ -7,8 +7,6 @@ pub struct ActiveSession {
     pub gamepad: Gamepad,
     pub dev_handle: Xbox360DeviceHandle,
     pub rumble_rx: mpsc::Receiver<(u8, u8)>,
-    // Tracks the most recently requested rumble state so we can sustain it
-    // across multiple ticks (re-applying each tick while non-zero).
     rumble_state: (u8, u8),
 }
 
