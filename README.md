@@ -3,15 +3,15 @@
   <img src="assets/icon.png" width="48" align="top" alt="Logo" />
 </h1>
 
-A lightweight, high-performance standalone Rust application that bridges SDL3-compatible controllers (such as the Steam Controller) to virtual Xbox 360 controllers system-wide using the [VIIPER](https://github.com/Alia5/VIIPER) and USBIP systems.
+A lightweight, high-performance standalone Rust application that bridges SDL3-compatible controllers (such as the Steam Controller) to virtual Xbox 360 controllers system-wide using the [VIIPER library](https://github.com/Alia5/VIIPER) to communicate with the USBIP server.
 
 ## Origins & Credits
 
 This project is a standalone mix of two open-source projects:
 * **[InputFusion](https://github.com/xan105/InputFusion)**: The project uses the mapping logic from `xan105` to translate inputs into standard XInput behavior.
-* **[SISR](https://github.com/Alia5/SISR)** (Steam Input System-Wide Redirector): The project uses the approach from `Alia5` of using [VIIPER](https://github.com/Alia5/VIIPER) to spawn a virtual gamepad at the USB driver level.
+* **[SISR](https://github.com/Alia5/SISR)** (Steam Input System-Wide Redirector): The project uses the approach from `Alia5` of using the [VIIPER](https://github.com/Alia5/VIIPER) library to spawn a virtual gamepad at the USB driver level.
 
-By combining these concepts into a native SDL3 application, the project removes the need to have Steam running in the background and avoids `.dll` hooking.
+By combining these concepts into a native SDL3 application that embeds `libviiper`, the project removes the need to run an external server process or have Steam running in the background.
 
 ## How it Works
 
@@ -20,10 +20,11 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 **SDL2XInput** solves this natively:
 1. It reads the physical controller using **SDL3**.
 2. It translates the inputs (buttons, analog triggers, axes) into XInput format.
-3. It sends the data to a local **VIIPER** server, which creates a system-wide Virtual Xbox 360 controller.
+3. It uses the **VIIPER library** (statically embedded) to communicate with the Windows USBIP bus and spawn a system-wide Virtual Xbox 360 controller.
 
 ## Features
 
+* **Integrated VIIPER Library**: Uses `libviiper` to handle USBIP communications directly. No external server process required.
 * **No Custom Drivers**: Uses the native Windows `xusb22.sys` driver via USBIP. No `ViGEmBus` required.
 * **Rumble Support**: Supports bidirectional rumble pass-through from the virtual controller back to the physical hardware.
 * **Button Remapping**: Supports custom button layouts and axis inversions via a TOML configuration file.
@@ -33,30 +34,31 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 * **Device Filtering**: Supports custom VID:PID blocklists to ignore specific hardware. By default, **all Xbox 360 controllers are ignored**. This is because the virtual controllers spawned by the application are recognized as Xbox 360 controllers, and the application must ignore them to prevent reading its own output and creating an infinite input loop.
 * **Multi-Controller Support**: Creates a 1-to-1 virtual controller for every physical controller connected.
 
+> [!NOTE]
+> **A Note on Rumble Compatibility:** Rumble pass-through relies entirely on SDL3's driver implementation. Official controllers like the **PlayStation 5 (DualSense)** and the **Steam Controller** benefit massively from this application and will rumble flawlessly. However, rumble can be finicky on some third-party generic controllers (e.g., Flydigi controllers in Nintendo Switch Mode). These devices often spoof official Hardware IDs but lack the actual proprietary hardware (like Nintendo's HD Rumble Linear Resonant Actuators) required to decode the specific packets SDL3 sends. If your third-party controller does not vibrate, it is recommended to switch it to PC/XInput mode instead.
+
 ## Prerequisites
 
-> [!IMPORTANT]
-> **VIIPER Server**: A VIIPER server must be running on the host machine.
-> * Download the latest `viiper-windows-amd64.exe` from the Viiper repository.
-> * Run `viiper-windows-amd64.exe server` in a terminal.
-
-1. **Rust & Cargo**: To compile the source code.
+### For Building from Source
+* **Rust & Cargo**: To compile the source code.
+* **Go**: Required to compile the embedded VIIPER components.
+* **GCC Toolchain (MinGW-w64)**: Required for the Rust compiler to link the C and Go components on Windows.
 
 ## Installation & Build
 
 Clone the repository and build the optimized standalone executable:
 
 ```bash
-git clone https://github.com/VladFlorinIlie/sdl2xinput.git
+git clone --recurse-submodules https://github.com/VladFlorinIlie/sdl2xinput.git
 cd sdl2xinput
 cargo build --release
 ```
 
-The standalone executable will be located at `target/release/sdl2xinput.exe`.
+The standalone executable will be located at `target/release/sdl2xinput.exe`. It is fully self-contained and requires no external DLLs or server processes.
 
 ## Usage
 
-Ensure the VIIPER server is running, then launch the redirector. 
+Simply launch the redirector. It will automatically initialize the **VIIPER library** and begin forwarding inputs.
 
 **Running in the Background:**
 Double-click the `sdl2xinput.exe` file from Windows Explorer. The console will hide, and an icon will appear in the system tray. Right-click the tray icon to exit the application. Logs will be written to `sdl2xinput.log` in the same directory.
@@ -90,7 +92,7 @@ The redirector can be configured using CLI arguments. Use `--help` to see all op
 
 * `-c, --config <FILE>`: Path to a TOML config file for button remapping and axis tweaks.
 * `-p, --polling-rate <HZ>`: Input polling rate (1-1000 Hz). Higher values lower latency but use more CPU (Default: `250`).
-* `-v, --viiper-address <ADDRESS>`: The IP and Port of the VIIPER server (Default: `127.0.0.1:3242`).
+* `--usb-server-addr <ADDRESS>`: The IP address and Port for the USBIP server (e.g. `127.0.0.1:3241`). Defaults to the system default if not provided.
 * `-m, --max-controllers <NUMBER>`: Limit the maximum number of active virtual controllers (Default: `1`).
 * `-d, --deadzone <INT>`: Hardware deadzone applied to analog sticks to eliminate micro-jitter (Default: `1000`). Set to `0` to disable completely.
 * `--filter-device <VID:PID>`: Block a specific device by VID:PID (hex, e.g. `045E:028E`). Can be repeated.

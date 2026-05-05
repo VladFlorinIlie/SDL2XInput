@@ -1,8 +1,8 @@
 use sdl3::gamepad::{Gamepad, Axis, Button};
-use viiper_client::devices::xbox360::{self, Xbox360Input};
+use crate::viiper_bridge::Xbox360DeviceState;
 use crate::config::{Config, XboxButton};
 
-pub fn update_from_sdl_gamepad(istate: &mut Xbox360Input, gp: &Gamepad, cfg: &Config, deadzone: i16) {
+pub fn update_from_sdl_gamepad(istate: &mut Xbox360DeviceState, gp: &Gamepad, cfg: &Config, deadzone: i16) {
     let mut b: u32 = 0;
 
     // Helper: apply one physical button to its remapped virtual Xbox 360 bit.
@@ -60,23 +60,41 @@ fn apply_deadzone(val: i16, deadzone: i16) -> i16 {
     }
 }
 
+// XInput Button Bitmasks (matches viiper_bridge expectations)
+const BUTTON_DPAD_UP: u32 = 0x0001;
+const BUTTON_DPAD_DOWN: u32 = 0x0002;
+const BUTTON_DPAD_LEFT: u32 = 0x0004;
+const BUTTON_DPAD_RIGHT: u32 = 0x0008;
+const BUTTON_START: u32 = 0x0010;
+const BUTTON_BACK: u32 = 0x0020;
+const BUTTON_L_THUMB: u32 = 0x0040;
+const BUTTON_R_THUMB: u32 = 0x0080;
+const BUTTON_L_SHOULDER: u32 = 0x0100;
+const BUTTON_R_SHOULDER: u32 = 0x0200;
+const BUTTON_GUIDE: u32 = 0x0400;
+const BUTTON_A: u32 = 0x1000;
+const BUTTON_B: u32 = 0x2000;
+const BUTTON_X: u32 = 0x4000;
+const BUTTON_Y: u32 = 0x8000;
+
 /// Convert an XboxButton variant to its XInput bitmask bit.
 fn xbox_button_bit(btn: XboxButton) -> u32 {
     match btn {
-        XboxButton::A             => xbox360::BUTTON_A as u32,
-        XboxButton::B             => xbox360::BUTTON_B as u32,
-        XboxButton::X             => xbox360::BUTTON_X as u32,
-        XboxButton::Y             => xbox360::BUTTON_Y as u32,
-        XboxButton::Start         => xbox360::BUTTON_START as u32,
-        XboxButton::Back          => xbox360::BUTTON_BACK as u32,
-        XboxButton::Guide         => xbox360::BUTTON_GUIDE as u32,
-        XboxButton::LeftStick     => xbox360::BUTTON_L_THUMB as u32,
-        XboxButton::RightStick    => xbox360::BUTTON_R_THUMB as u32,
-        XboxButton::LeftShoulder  => xbox360::BUTTON_L_SHOULDER as u32,
-        XboxButton::RightShoulder => xbox360::BUTTON_R_SHOULDER as u32,
-        XboxButton::DPadUp        => xbox360::BUTTON_D_PAD_UP as u32,
-        XboxButton::DPadDown      => xbox360::BUTTON_D_PAD_DOWN as u32,
-        XboxButton::DPadLeft      => xbox360::BUTTON_D_PAD_LEFT as u32,
-        XboxButton::DPadRight     => xbox360::BUTTON_D_PAD_RIGHT as u32,
+        XboxButton::A             => BUTTON_A,
+        XboxButton::B             => BUTTON_B,
+        XboxButton::X             => BUTTON_X,
+        XboxButton::Y             => BUTTON_Y,
+        XboxButton::Start         => BUTTON_START,
+        XboxButton::Back          => BUTTON_BACK,
+        XboxButton::Guide         => BUTTON_GUIDE,
+        XboxButton::LeftStick     => BUTTON_L_THUMB,
+        XboxButton::RightStick    => BUTTON_R_THUMB,
+        XboxButton::LeftShoulder  => BUTTON_L_SHOULDER,
+        XboxButton::RightShoulder => BUTTON_R_SHOULDER,
+        XboxButton::DPadUp        => BUTTON_DPAD_UP,
+        XboxButton::DPadDown      => BUTTON_DPAD_DOWN,
+        XboxButton::DPadLeft      => BUTTON_DPAD_LEFT,
+        XboxButton::DPadRight     => BUTTON_DPAD_RIGHT,
     }
 }
+
