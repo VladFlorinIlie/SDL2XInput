@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 sdl3-sys = { version = "0.6.3", features = ["build-from-source-static", "debug-impls"] }
 sdl3 = { version = "0.18.0", features = ["hidapi"] }
-libloading = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 anyhow = "1.0"

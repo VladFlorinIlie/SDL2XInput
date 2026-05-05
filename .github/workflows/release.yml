@@ -45,7 +45,6 @@ jobs:
         with:
           files: |
             target/release/sdl2xinput.exe
-            target/release/libviiper.dll
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
         env:

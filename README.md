@@ -20,7 +20,7 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 **SDL2XInput** solves this natively:
 1. It reads the physical controller using **SDL3**.
 2. It translates the inputs (buttons, analog triggers, axes) into XInput format.
-3. It uses the **VIIPER library** (via `libviiper.dll`) to communicate with the USBIP server and spawn a system-wide Virtual Xbox 360 controller.
+3. It uses the **VIIPER library** (statically embedded) to communicate with the Windows USBIP bus and spawn a system-wide Virtual Xbox 360 controller.
 
 ## Features
 
@@ -35,9 +35,6 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 * **Multi-Controller Support**: Creates a 1-to-1 virtual controller for every physical controller connected.
 
 ## Prerequisites
-
-### For Running
-* **libviiper.dll**: Must be present in the same directory as the executable (included in binary releases).
 
 ### For Building from Source
 * **Rust & Cargo**: To compile the source code.
@@ -54,7 +51,7 @@ cd sdl2xinput
 cargo build --release
 ```
 
-The standalone executable will be located at `target/release/sdl2xinput.exe`. Ensure `libviiper.dll` is in the same folder before running.
+The standalone executable will be located at `target/release/sdl2xinput.exe`. It is fully self-contained and requires no external DLLs or server processes.
 
 ## Usage
 

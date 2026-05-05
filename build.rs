@@ -11,7 +11,7 @@ fn main() -> io::Result<()> {
     let status = Command::new("go")
         .current_dir("viiper/lib/viiper")
         .env("CGO_ENABLED", "1")
-        .args(&["build", "-buildmode=c-shared", "-o", "libviiper.dll", "."])
+        .args(&["build", "-buildmode=c-archive", "-o", "libviiper.a", "."])
         .status()
         .expect("Failed to execute `go build`. Ensure the Go toolchain is installed.");
 
@@ -19,13 +19,20 @@ fn main() -> io::Result<()> {
         panic!("Failed to build libviiper.dll. Go compiler returned an error.");
     }
 
-    // Copy the generated DLL to the target directory (alongside the executable)
+    // Copy the generated archive to the target directory (alongside the executable)
     let out_dir = env::var("OUT_DIR").unwrap();
     let target_dir = Path::new(&out_dir).ancestors().nth(3).unwrap();
     std::fs::copy(
-        "viiper/lib/viiper/libviiper.dll",
-        target_dir.join("libviiper.dll"),
+        "viiper/lib/viiper/libviiper.a",
+        target_dir.join("libviiper.a"),
     )?;
+
+    // Link the static library and required Windows system libraries
+    println!("cargo:rustc-link-search=native={}", target_dir.to_str().unwrap());
+    println!("cargo:rustc-link-lib=static=viiper");
+    println!("cargo:rustc-link-lib=dylib=winmm");
+    println!("cargo:rustc-link-lib=dylib=ws2_32");
+    println!("cargo:rustc-link-lib=dylib=ntdll");
 
     println!("cargo:rerun-if-changed=assets/icon.ico");
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {

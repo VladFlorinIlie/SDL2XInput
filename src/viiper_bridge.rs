@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 use std::sync::{mpsc, Mutex, OnceLock};
-use libloading::Library;
 
 // --- C FFI types matching libviiper.h ---
 
@@ -32,35 +31,30 @@ pub struct Xbox360DeviceState {
 type ViiperLogCallback   = Option<unsafe extern "C" fn(i32, *const std::ffi::c_char)>;
 type Xbox360RumbleCallback = Option<unsafe extern "C" fn(Xbox360DeviceHandle, u8, u8)>;
 
-// --- Internal API Table ---
-
-struct ViiperApi {
-    new_usb_server:              unsafe extern "C" fn(*const USBServerConfig, *mut USBServerHandle, ViiperLogCallback) -> u8,
-    close_usb_server:            unsafe extern "C" fn(USBServerHandle) -> u8,
-    create_usb_bus:              unsafe extern "C" fn(USBServerHandle, *mut u32) -> u8,
-    remove_usb_bus:              unsafe extern "C" fn(USBServerHandle, u32) -> u8,
-    create_xbox360_device:       unsafe extern "C" fn(USBServerHandle, *mut Xbox360DeviceHandle, u32, u8, u16, u16, u8) -> u8,
-    set_xbox360_device_state:    unsafe extern "C" fn(Xbox360DeviceHandle, Xbox360DeviceState) -> u8,
-    set_xbox360_rumble_callback: unsafe extern "C" fn(Xbox360DeviceHandle, Xbox360RumbleCallback) -> u8,
-    remove_xbox360_device:       unsafe extern "C" fn(Xbox360DeviceHandle) -> u8,
+unsafe extern "C" {
+    fn NewUSBServer(config: *const USBServerConfig, outHandle: *mut USBServerHandle, logCallback: ViiperLogCallback) -> u8;
+    fn CloseUSBServer(handle: USBServerHandle) -> u8;
+    fn CreateUSBBus(handle: USBServerHandle, busID: *mut u32) -> u8;
+    fn RemoveUSBBus(handle: USBServerHandle, busID: u32) -> u8;
+    fn CreateXbox360Device(serverHandle: USBServerHandle, outDeviceHandle: *mut Xbox360DeviceHandle, busID: u32, autoAttachLocalhost: u8, idVendor: u16, idProduct: u16, xinputSubType: u8) -> u8;
+    fn SetXbox360DeviceState(handle: Xbox360DeviceHandle, state: Xbox360DeviceState) -> u8;
+    fn SetXbox360RumbleCallback(handle: Xbox360DeviceHandle, cb: Xbox360RumbleCallback) -> u8;
+    fn RemoveXbox360Device(handle: Xbox360DeviceHandle) -> u8;
 }
 
-fn get_api() -> Result<&'static ViiperApi> {
-    static API: OnceLock<Result<ViiperApi>> = OnceLock::new();
-    API.get_or_init(|| unsafe {
-        let lib = Library::new("libviiper.dll").map_err(anyhow::Error::from)?;
-        let lib = Box::leak(Box::new(lib)); // Leak to prevent segfault on exit
-        Ok(ViiperApi {
-            new_usb_server:              *lib.get(b"NewUSBServer")?,
-            close_usb_server:            *lib.get(b"CloseUSBServer")?,
-            create_usb_bus:              *lib.get(b"CreateUSBBus")?,
-            remove_usb_bus:              *lib.get(b"RemoveUSBBus")?,
-            create_xbox360_device:       *lib.get(b"CreateXbox360Device")?,
-            set_xbox360_device_state:    *lib.get(b"SetXbox360DeviceState")?,
-            set_xbox360_rumble_callback: *lib.get(b"SetXbox360RumbleCallback")?,
-            remove_xbox360_device:       *lib.get(b"RemoveXbox360Device")?,
-        })
-    }).as_ref().map_err(|e| anyhow::anyhow!("Failed to load libviiper.dll: {}", e))
+// --- Callbacks ---
+
+unsafe extern "C" fn viiper_logger(level: i32, msg: *const std::ffi::c_char) {
+    if msg.is_null() { return; }
+    // SAFETY: We assume msg is a valid null-terminated C string pointing to memory that lasts for the duration of this call
+    let s = unsafe { std::ffi::CStr::from_ptr(msg).to_string_lossy() };
+    match level {
+        8 => tracing::error!("libviiper: {}", s),
+        4 => tracing::warn!("libviiper: {}", s),
+        0 => tracing::info!("libviiper: {}", s),
+        -4 => tracing::debug!("libviiper: {}", s),
+        _ => {}
+    }
 }
 
 // --- Rumble Registry ---
@@ -86,7 +80,6 @@ pub struct ViiperManager {
 
 impl ViiperManager {
     pub fn connect(addr: Option<&str>) -> Result<Self> {
-        let api = get_api()?;
         unsafe {
             let c_addr = addr.map(|s| std::ffi::CString::new(s).ok()).flatten();
             let config = USBServerConfig {
@@ -96,7 +89,7 @@ impl ViiperManager {
                 write_batch_flush_interval_ms: 1,
             };
             let mut server_handle = 0;
-            if (api.new_usb_server)(&config, &mut server_handle, None) == 0 {
+            if NewUSBServer(&config, &mut server_handle, Some(viiper_logger)) == 0 {
                 bail!("Failed to start USB server");
             }
             Ok(Self { server_handle })
@@ -104,21 +97,20 @@ impl ViiperManager {
     }
 
     pub fn create_virtual_xbox_controller(&self) -> Result<(Xbox360DeviceHandle, u32, mpsc::Receiver<(u8, u8)>)> {
-        let api = get_api()?;
         unsafe {
             let mut bus_id = 0;
-            if (api.create_usb_bus)(self.server_handle, &mut bus_id) == 0 {
+            if CreateUSBBus(self.server_handle, &mut bus_id) == 0 {
                 bail!("Failed to create USB bus");
             }
 
             let mut handle = 0;
-            if (api.create_xbox360_device)(self.server_handle, &mut handle, bus_id, 1, 0, 0, 1) == 0 {
-                (api.remove_usb_bus)(self.server_handle, bus_id);
+            if CreateXbox360Device(self.server_handle, &mut handle, bus_id, 1, 0, 0, 1) == 0 {
+                RemoveUSBBus(self.server_handle, bus_id);
                 bail!("Failed to create virtual Xbox controller");
             }
             let (tx, rx) = mpsc::channel();
             rumble_senders().lock().unwrap().insert(handle, tx);
-            if (api.set_xbox360_rumble_callback)(handle, Some(rumble_callback)) == 0 {
+            if SetXbox360RumbleCallback(handle, Some(rumble_callback)) == 0 {
                 tracing::warn!("Failed to set rumble callback for handle {}", handle);
             }
             Ok((handle, bus_id, rx))
@@ -126,9 +118,8 @@ impl ViiperManager {
     }
 
     pub fn set_xbox360_state(&self, handle: Xbox360DeviceHandle, state: Xbox360DeviceState) -> Result<()> {
-        let api = get_api()?;
         unsafe {
-            if (api.set_xbox360_device_state)(handle, state) == 0 {
+            if SetXbox360DeviceState(handle, state) == 0 {
                 bail!("Failed to set device state");
             }
         }
@@ -136,13 +127,12 @@ impl ViiperManager {
     }
 
     pub fn remove_virtual_xbox_controller(&self, handle: Xbox360DeviceHandle, bus_id: u32) -> Result<()> {
-        let api = get_api()?;
         unsafe {
             rumble_senders().lock().unwrap().remove(&handle);
-            if (api.remove_xbox360_device)(handle) == 0 {
+            if RemoveXbox360Device(handle) == 0 {
                 tracing::warn!("Failed to remove virtual device (it may already be gone)");
             }
-            if (api.remove_usb_bus)(self.server_handle, bus_id) == 0 {
+            if RemoveUSBBus(self.server_handle, bus_id) == 0 {
                 tracing::warn!("Failed to remove USB bus {}", bus_id);
             }
         }
@@ -152,8 +142,6 @@ impl ViiperManager {
 
 impl Drop for ViiperManager {
     fn drop(&mut self) {
-        if let Ok(api) = get_api() {
-            unsafe { (api.close_usb_server)(self.server_handle); }
-        }
+        unsafe { CloseUSBServer(self.server_handle); }
     }
 }
