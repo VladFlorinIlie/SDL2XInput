@@ -33,6 +33,7 @@ jobs:
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-egl-headers
 
       - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
