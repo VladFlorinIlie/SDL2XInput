@@ -22,7 +22,21 @@ impl ViiperManager {
         Ok(Self { client, bus_id })
     }
 
-    pub async fn create_virtual_xbox_controller(&self, name: &str) -> Result<(AsyncDeviceStream, mpsc::UnboundedReceiver<(u8, u8)>)> {
+    pub async fn ensure_bus(&mut self) -> Result<()> {
+        let buses = self.client.bus_list().await?;
+        if !buses.buses.contains(&self.bus_id) {
+            self.bus_id = if let Some(&id) = buses.buses.first() {
+                id
+            } else {
+                self.client.bus_create(None).await?.bus_id
+            };
+        }
+        Ok(())
+    }
+
+    pub async fn create_virtual_xbox_controller(&mut self, name: &str) -> Result<(String, AsyncDeviceStream, mpsc::UnboundedReceiver<(u8, u8)>)> {
+        self.ensure_bus().await?;
+        
         let mut device_specific = std::collections::HashMap::new();
         device_specific.insert("name".to_string(), serde_json::Value::String(name.to_string()));
         
@@ -51,6 +65,13 @@ impl ViiperManager {
             }
         })?;
         
-        Ok((dev_stream, rumble_rx))
+        let dev_id = dev_info.dev_id.clone();
+        
+        Ok((dev_id, dev_stream, rumble_rx))
+    }
+
+    pub async fn remove_virtual_xbox_controller(&self, dev_id: &str) -> Result<()> {
+        self.client.bus_device_remove(self.bus_id, Some(dev_id)).await?;
+        Ok(())
     }
 }

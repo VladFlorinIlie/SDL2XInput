@@ -5,6 +5,7 @@ use crate::config::Config;
 
 pub struct ActiveSession {
     pub gamepad: Gamepad,
+    pub dev_id: String,
     pub dev_stream: AsyncDeviceStream,
     pub rumble_rx: mpsc::UnboundedReceiver<(u8, u8)>,
 }

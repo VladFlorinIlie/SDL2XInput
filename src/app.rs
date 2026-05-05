@@ -124,7 +124,7 @@ impl App {
                         self.handle_device_added(which).await;
                     }
                     sdl3::event::Event::ControllerDeviceRemoved { which, .. } => {
-                        self.handle_device_removed(which);
+                        self.handle_device_removed(which).await;
                     }
                     sdl3::event::Event::Quit { .. } => {
                         tracing::info!("Exiting...");
@@ -169,9 +169,10 @@ impl App {
                 Ok(gp) => {
                     tracing::info!("Opened physical gamepad: {:?}", gp.name());
                     match self.viiper_manager.create_virtual_xbox_controller("Virtual Steam Controller").await {
-                        Ok((dev_stream, rumble_rx)) => {
+                        Ok((dev_id, dev_stream, rumble_rx)) => {
                             self.active_sessions.insert(which, ActiveSession {
                                 gamepad: gp,
+                                dev_id,
                                 dev_stream,
                                 rumble_rx,
                             });
@@ -184,8 +185,11 @@ impl App {
         }
     }
 
-    fn handle_device_removed(&mut self, which: u32) {
-        if self.active_sessions.remove(&which).is_some() {
+    async fn handle_device_removed(&mut self, which: u32) {
+        if let Some(session) = self.active_sessions.remove(&which) {
+            if let Err(e) = self.viiper_manager.remove_virtual_xbox_controller(&session.dev_id).await {
+                tracing::error!("Failed to cleanly remove virtual device: {}", e);
+            }
             tracing::info!("Gamepad Removed: ID {} (Virtual controller destroyed)", which);
         }
     }
