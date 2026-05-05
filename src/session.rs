@@ -6,13 +6,14 @@ use crate::config::Config;
 pub struct ActiveSession {
     pub gamepad: Gamepad,
     pub dev_handle: Xbox360DeviceHandle,
+    pub bus_id: u32,
     pub rumble_rx: mpsc::Receiver<(u8, u8)>,
     rumble_state: (u8, u8),
 }
 
 impl ActiveSession {
-    pub fn new(gamepad: Gamepad, dev_handle: Xbox360DeviceHandle, rumble_rx: mpsc::Receiver<(u8, u8)>) -> Self {
-        Self { gamepad, dev_handle, rumble_rx, rumble_state: (0, 0) }
+    pub fn new(gamepad: Gamepad, dev_handle: Xbox360DeviceHandle, bus_id: u32, rumble_rx: mpsc::Receiver<(u8, u8)>) -> Self {
+        Self { gamepad, dev_handle, bus_id, rumble_rx, rumble_state: (0, 0) }
     }
 
     pub fn apply_rumble(&mut self) {

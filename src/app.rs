@@ -137,8 +137,8 @@ impl App {
             Ok(gp) => {
                 tracing::info!("Opened physical gamepad: {}", gp.name().unwrap_or_else(|| "unknown".to_string()));
                 match self.viiper_manager.create_virtual_xbox_controller() {
-                    Ok((dev_handle, rumble_rx)) => {
-                        self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, rumble_rx));
+                    Ok((dev_handle, bus_id, rumble_rx)) => {
+                        self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, bus_id, rumble_rx));
                     }
                     Err(e) => tracing::error!("Failed to create virtual device: {}", e),
                 }
@@ -149,7 +149,7 @@ impl App {
 
     fn handle_device_removed(&mut self, which: u32) {
         if let Some(session) = self.active_sessions.remove(&which) {
-            if let Err(e) = self.viiper_manager.remove_virtual_xbox_controller(session.dev_handle) {
+            if let Err(e) = self.viiper_manager.remove_virtual_xbox_controller(session.dev_handle, session.bus_id) {
                 tracing::error!("Failed to remove virtual device: {}", e);
             }
             tracing::info!("Gamepad removed: ID {}", which);
