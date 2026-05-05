@@ -178,32 +178,20 @@ impl App {
 /// Loads the embedded .ico and creates the system tray icon.
 /// Returns `None` (with a warning) if the tray cannot be initialised.
 fn create_tray(quit_flag: &Arc<AtomicBool>) -> Option<TrayItem> {
-    // The .ico is embedded at compile time to avoid MinGW windres linker issues.
-    let icon_bytes = include_bytes!("../assets/icon.ico");
-
-    // Parse the ICO header to get the first image entry.
-    // ICO format: 6-byte file header + 16-byte ICONDIRENTRY entries.
-    // ICONDIRENTRY: [width(1), height(1), colors(1), reserved(1), planes(2), bitcount(2), size(4), offset(4)]
-    let size   = u32::from_le_bytes(icon_bytes[14..18].try_into().ok()?) as usize;
-    let offset = u32::from_le_bytes(icon_bytes[18..22].try_into().ok()?) as usize;
-    let image  = &icon_bytes[offset..offset + size];
-
-    // SAFETY: image_data points into a 'static byte slice embedded in the binary.
     let hicon = unsafe {
-        windows_sys::Win32::UI::WindowsAndMessaging::CreateIconFromResourceEx(
-            image.as_ptr() as *mut u8,
-            image.len() as u32,
-            1,          // fIcon = true
-            0x0003_0000, // dwVersion
-            0, 0,        // desired size 0 = system default
+        windows_sys::Win32::UI::WindowsAndMessaging::LoadImageW(
+            windows_sys::Win32::System::LibraryLoader::GetModuleHandleW(std::ptr::null()),
+            1 as *const u16, // Resource ID 1 (compiled via build.rs)
+            windows_sys::Win32::UI::WindowsAndMessaging::IMAGE_ICON,
+            0, 0,
             windows_sys::Win32::UI::WindowsAndMessaging::LR_DEFAULTCOLOR,
         )
     };
 
-    let icon_source = if !hicon.is_null() {
+    let icon_source = if hicon != std::ptr::null_mut() {
         IconSource::RawIcon(hicon as _)
     } else {
-        tracing::warn!("Failed to load embedded icon; tray will have no icon");
+        tracing::warn!("Failed to load embedded icon from resources; tray will have no icon");
         IconSource::Resource("")
     };
 

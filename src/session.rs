@@ -17,18 +17,24 @@ impl ActiveSession {
     }
 
     pub fn apply_rumble(&mut self) {
+        let mut changed = false;
         while let Ok(val) = self.rumble_rx.try_recv() {
             self.rumble_state = val;
+            changed = true;
         }
+        
         let (left, right) = self.rumble_state;
         if left > 0 || right > 0 {
             // Re-apply every tick with a short window; SDL3 stops automatically
-            // once the window expires and we stop re-applying on (0,0).
+            // once the window expires and we stop re-applying.
             let _ = self.gamepad.set_rumble(
                 (left  as u16) << 8 | left  as u16,
                 (right as u16) << 8 | right as u16,
                 50,
             );
+        } else if changed {
+            // Explicitly stop the rumble immediately rather than waiting 50ms to time out
+            let _ = self.gamepad.set_rumble(0, 0, 0);
         }
     }
 
