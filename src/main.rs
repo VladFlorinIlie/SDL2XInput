@@ -47,7 +47,7 @@ pub struct Args {
     /// IP address and port for the USBIP server (e.g. 127.0.0.1:3241).
     /// Defaults to NULL (usually 127.0.0.1:3241) if not specified.
     #[arg(long, value_name = "ADDR")]
-    pub viiper_addr: Option<String>,
+    pub usb_server_addr: Option<String>,
 }
 
 fn main() -> Result<()> {

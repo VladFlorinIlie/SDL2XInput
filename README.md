@@ -90,7 +90,7 @@ The redirector can be configured using CLI arguments. Use `--help` to see all op
 
 * `-c, --config <FILE>`: Path to a TOML config file for button remapping and axis tweaks.
 * `-p, --polling-rate <HZ>`: Input polling rate (1-1000 Hz). Higher values lower latency but use more CPU (Default: `250`).
-* `-v, --viiper-address <ADDRESS>`: The IP and Port of the VIIPER server (Default: `127.0.0.1:3242`).
+* `--usb-server-addr <ADDRESS>`: The IP address and Port of the VIIPER USBIP server (e.g. `127.0.0.1:3241`). Defaults to the system default if not provided.
 * `-m, --max-controllers <NUMBER>`: Limit the maximum number of active virtual controllers (Default: `1`).
 * `-d, --deadzone <INT>`: Hardware deadzone applied to analog sticks to eliminate micro-jitter (Default: `1000`). Set to `0` to disable completely.
 * `--filter-device <VID:PID>`: Block a specific device by VID:PID (hex, e.g. `045E:028E`). Can be repeated.
