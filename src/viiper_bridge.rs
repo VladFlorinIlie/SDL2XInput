@@ -28,6 +28,8 @@ impl ViiperManager {
         
         let req = viiper_client::types::DeviceCreateRequest {
             r#type: Some("xbox360".to_string()),
+            // Must remain None so Windows binds xusb22.sys (Xbox 360 driver).
+            // Overriding VID/PID here causes the device to be unrecognized by games.
             id_vendor: None,
             id_product: None,
             device_specific: Some(device_specific),
