@@ -37,6 +37,11 @@ pub struct Args {
     /// need to pass Xbox 360 hardware through without any automatic filtering.
     #[arg(long, default_value_t = false)]
     pub empty_device_filter: bool,
+
+    /// Do not hide the console window or create a system tray icon.
+    /// By default, the application runs in the background with a system tray icon.
+    #[arg(long, default_value_t = false)]
+    pub no_tray: bool,
 }
 
 #[tokio::main]

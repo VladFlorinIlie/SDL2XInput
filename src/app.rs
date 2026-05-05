@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use anyhow::Result;
 use sdl3::GamepadSubsystem;
 use sdl3::sys::joystick::SDL_JoystickID;
 use sdl3::EventPump;
+use tray_item::{IconSource, TrayItem};
 
 use crate::Args;
 use crate::config::Config;
@@ -26,6 +28,8 @@ pub struct App {
     event_pump: EventPump,
     viiper_manager: ViiperManager,
     active_sessions: HashMap<u32, ActiveSession>,
+    quit_flag: Arc<AtomicBool>,
+    _tray: Option<TrayItem>, // Keep the tray item alive
 }
 
 impl App {
@@ -58,6 +62,35 @@ impl App {
             println!("  {:04X}:{:04X}", vid, pid);
         }
 
+        let quit_flag = Arc::new(AtomicBool::new(false));
+        let mut _tray = None;
+
+        if !args.no_tray {
+            #[cfg(target_os = "windows")]
+            unsafe {
+                use windows_sys::Win32::System::Console::{FreeConsole, GetConsoleProcessList};
+                let mut process_list = [0u32; 2];
+                let num_processes = GetConsoleProcessList(process_list.as_mut_ptr(), 2);
+                
+                // If there is only 1 process attached to this console, we were 
+                // launched via double-click from Explorer.
+                // If > 1, we were launched from an existing CLI (like PowerShell).
+                // We only detach the console if we were double-clicked!
+                if num_processes <= 1 {
+                    FreeConsole();
+                }
+            }
+
+            let mut tray = TrayItem::new("SDL2XInput", IconSource::Resource("icon")).unwrap();
+            tray.add_label("SDL2XInput Running").unwrap();
+            
+            let q_flag = quit_flag.clone();
+            tray.add_menu_item("Quit", move || {
+                q_flag.store(true, Ordering::SeqCst);
+            }).unwrap();
+
+            _tray = Some(tray);
+        }
         
         Ok(Self {
             args,
@@ -69,6 +102,8 @@ impl App {
             event_pump,
             viiper_manager,
             active_sessions: HashMap::new(),
+            quit_flag,
+            _tray,
         })
     }
 
@@ -93,6 +128,11 @@ impl App {
         println!("Press Ctrl+C to exit.");
 
         loop {
+            if self.quit_flag.load(Ordering::SeqCst) {
+                println!("Quit signal received from tray. Exiting...");
+                return Ok(());
+            }
+
             while let Some(event) = self.event_pump.poll_event() {
                 match event {
                     sdl3::event::Event::ControllerDeviceAdded { which, .. } => {
