@@ -34,6 +34,9 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 * **Device Filtering**: Supports custom VID:PID blocklists to ignore specific hardware. By default, **all Xbox 360 controllers are ignored**. This is because the virtual controllers spawned by the application are recognized as Xbox 360 controllers, and the application must ignore them to prevent reading its own output and creating an infinite input loop.
 * **Multi-Controller Support**: Creates a 1-to-1 virtual controller for every physical controller connected.
 
+> [!NOTE]
+> **A Note on Rumble Compatibility:** Rumble pass-through relies entirely on SDL3's driver implementation. Official controllers like the **PlayStation 5 (DualSense)** and the **Steam Controller** benefit massively from this application and will rumble flawlessly. However, rumble can be finicky on some third-party generic controllers (e.g., Flydigi controllers in Nintendo Switch Mode). These devices often spoof official Hardware IDs but lack the actual proprietary hardware (like Nintendo's HD Rumble Linear Resonant Actuators) required to decode the specific packets SDL3 sends. If your third-party controller does not vibrate, it is recommended to switch it to PC/XInput mode instead.
+
 ## Prerequisites
 
 ### For Building from Source
