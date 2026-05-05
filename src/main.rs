@@ -10,10 +10,6 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// The Viiper Server Address
-    #[arg(short, long, default_value = "127.0.0.1:3242")]
-    pub viiper_address: String,
-
     /// Maximum number of active controllers allowed
     #[arg(short, long, default_value_t = 1)]
     pub max_controllers: usize,
@@ -49,8 +45,7 @@ pub struct Args {
     pub deadzone: i16,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut is_double_click = false;
@@ -80,8 +75,8 @@ async fn main() -> Result<()> {
         tracing_subscriber::fmt().init();
     }
     
-    let mut app = app::App::new(args).await?;
-    app.run().await?;
+    let mut app = app::App::new(args)?;
+    app.run()?;
     
     Ok(())
 }

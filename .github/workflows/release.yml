@@ -3,8 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - "v*" # This triggers the workflow when you push a tag like "v1.0.0"
-  workflow_dispatch: # Also allows you to trigger it manually from the Actions tab
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,18 +17,35 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
-      - name: Install Rust
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install MinGW (GCC)
+        run: choco install mingw -y --no-progress
+
+      - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
 
       # SDL3 static building requires CMake, but windows-latest already has it installed!
       - name: Build Release Executable
         run: cargo build --release
+        env:
+          # Ensure Go's cgo can find MinGW's gcc
+          PATH: "C:\\ProgramData\\mingw64\\mingw64\\bin;${{ env.PATH }}"
 
-      - name: Upload Release Asset
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/sdl2xinput.exe
+          files: |
+            target/release/sdl2xinput.exe
+            target/release/libviiper.dll
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
         env:
