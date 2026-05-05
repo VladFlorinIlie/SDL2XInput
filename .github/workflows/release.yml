@@ -26,7 +26,13 @@ jobs:
           go-version: '1.22'
 
       - name: Install MinGW (GCC)
-        run: choco install mingw -y --no-progress
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
 
       - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
@@ -36,7 +42,7 @@ jobs:
       # SDL3 static building requires CMake, but windows-latest already has it installed!
       - name: Build Release Executable
         run: |
-          $env:PATH = "C:\ProgramData\mingw64\mingw64\bin;" + $env:PATH
+          $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
           cargo build --release
 
       - name: Upload Release Assets
