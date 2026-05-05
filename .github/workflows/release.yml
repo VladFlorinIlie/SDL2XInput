@@ -35,10 +35,9 @@ jobs:
 
       # SDL3 static building requires CMake, but windows-latest already has it installed!
       - name: Build Release Executable
-        run: cargo build --release
-        env:
-          # Ensure Go's cgo can find MinGW's gcc
-          PATH: "C:\\ProgramData\\mingw64\\mingw64\\bin;${{ env.PATH }}"
+        run: |
+          $env:PATH = "C:\ProgramData\mingw64\mingw64\bin;" + $env:PATH
+          cargo build --release
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
