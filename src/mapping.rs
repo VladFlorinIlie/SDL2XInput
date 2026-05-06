@@ -1,15 +1,45 @@
 use sdl3::gamepad::{Gamepad, Axis, Button};
-use crate::viiper_bridge::Xbox360DeviceState;
+use crate::viiper_bridge::{Xbox360DeviceState, KeyboardDeviceState};
 use crate::config::{Config, XboxButton};
 
-pub fn update_from_sdl_gamepad(istate: &mut Xbox360DeviceState, gp: &Gamepad, cfg: &Config, deadzone: i16) {
+pub fn update_from_sdl_gamepad(
+    istate: &mut Xbox360DeviceState,
+    mut kb_state: Option<&mut KeyboardDeviceState>,
+    gp: &Gamepad,
+    cfg: &Config,
+    deadzone: i16
+) {
     let mut b: u32 = 0;
 
-    // Helper: apply one physical button to its remapped virtual Xbox 360 bit.
+    // Helper: apply one physical button to its remapped virtual Xbox 360 bit,
+    // or intercept it entirely if mapped to the keyboard.
     let mut set = |pressed: bool, target: XboxButton| {
-        if pressed {
-            b |= xbox_button_bit(target);
+        if !pressed { return; }
+
+        if cfg.keyboard.enabled {
+            let target_str = match target {
+                XboxButton::A => "a", XboxButton::B => "b",
+                XboxButton::X => "x", XboxButton::Y => "y",
+                XboxButton::Start => "start", XboxButton::Back => "back", XboxButton::Guide => "guide",
+                XboxButton::LeftStick => "left_stick", XboxButton::RightStick => "right_stick",
+                XboxButton::LeftShoulder => "left_shoulder", XboxButton::RightShoulder => "right_shoulder",
+                XboxButton::DPadUp => "dpad_up", XboxButton::DPadDown => "dpad_down",
+                XboxButton::DPadLeft => "dpad_left", XboxButton::DPadRight => "dpad_right",
+            };
+            if let Some(mapped_key_name) = cfg.keyboard.mapping.get(target_str) {
+                if let Some(kb) = kb_state.as_mut() {
+                    if let crate::keys::Action::Keyboard(keycode) = crate::keys::Action::parse(mapped_key_name) {
+                        let idx = keycode as usize;
+                        if idx < 256 {
+                            kb.key_bitmap[idx / 8] |= 1 << (idx % 8);
+                        }
+                    }
+                }
+                return; // EXCLUSIVE MAPPING: Do not pass to XInput!
+            }
         }
+
+        b |= xbox_button_bit(target);
     };
 
     set(gp.button(Button::South),         cfg.buttons.south);

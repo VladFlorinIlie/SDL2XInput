@@ -97,6 +97,35 @@ impl App {
                 match event {
                     sdl3::event::Event::ControllerDeviceAdded   { which, .. } => self.handle_device_added(which),
                     sdl3::event::Event::ControllerDeviceRemoved { which, .. } => self.handle_device_removed(which),
+                    sdl3::event::Event::ControllerTouchpadMotion { which, touchpad, finger, x, y, .. } => {
+                        if let Some(session) = self.active_sessions.get_mut(&which) {
+                            session.handle_touchpad_motion(touchpad, finger, x, y, &self.config);
+                        }
+                    }
+                    sdl3::event::Event::ControllerTouchpadDown { which, touchpad, finger, .. } => {
+                        if let Some(session) = self.active_sessions.get_mut(&which) {
+                            session.handle_touchpad_down(touchpad, finger, &self.config);
+                        }
+                    }
+                    sdl3::event::Event::ControllerTouchpadUp { which, touchpad, finger, .. } => {
+                        if let Some(session) = self.active_sessions.get_mut(&which) {
+                            session.handle_touchpad_up(touchpad, finger, &self.config);
+                        }
+                    }
+                    sdl3::event::Event::ControllerButtonDown { which, button, .. } => {
+                        if button == sdl3::gamepad::Button::Touchpad {
+                            if let Some(session) = self.active_sessions.get_mut(&which) {
+                                session.handle_touchpad_button(true, &self.config);
+                            }
+                        }
+                    }
+                    sdl3::event::Event::ControllerButtonUp { which, button, .. } => {
+                        if button == sdl3::gamepad::Button::Touchpad {
+                            if let Some(session) = self.active_sessions.get_mut(&which) {
+                                session.handle_touchpad_button(false, &self.config);
+                            }
+                        }
+                    }
                     sdl3::event::Event::Quit                    { .. }        => {
                         tracing::info!("Exiting...");
                         return Ok(());
@@ -138,7 +167,7 @@ impl App {
                 tracing::info!("Opened physical gamepad: {}", gp.name().unwrap_or_else(|| "unknown".to_string()));
                 match self.viiper_manager.create_virtual_xbox_controller() {
                     Ok((dev_handle, bus_id, rumble_rx)) => {
-                        self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, bus_id, rumble_rx));
+                        self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, bus_id, rumble_rx, &self.viiper_manager, &self.config));
                     }
                     Err(e) => tracing::error!("Failed to create virtual device: {}", e),
                 }
@@ -148,10 +177,8 @@ impl App {
     }
 
     fn handle_device_removed(&mut self, which: u32) {
-        if let Some(session) = self.active_sessions.remove(&which) {
-            if let Err(e) = self.viiper_manager.remove_virtual_xbox_controller(session.dev_handle, session.bus_id) {
-                tracing::error!("Failed to remove virtual device: {}", e);
-            }
+        if let Some(mut session) = self.active_sessions.remove(&which) {
+            session.destroy(&self.viiper_manager);
             tracing::info!("Gamepad removed: ID {}", which);
         }
     }
