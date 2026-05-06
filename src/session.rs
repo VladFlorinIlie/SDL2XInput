@@ -34,13 +34,15 @@ pub struct ActiveSession {
     finger_tracking: HashMap<(i32, i32), TouchState>,
     
     // Actions that need to be released after a few frames
-    pending_action_releases: Vec<(String, u8)>,
+    pending_action_releases: Vec<(Action, u8)>,
     
     // For tap-and-drag gesture
     last_tap_time: Option<std::time::Instant>,
     
     // Cached mapping for O(1) hot-loop performance
     pre_parsed_kb_mapping: HashMap<String, u8>,
+    touchpad_soft_action: Action,
+    touchpad_hard_action: Action,
 }
 
 impl ActiveSession {
@@ -100,6 +102,8 @@ impl ActiveSession {
             pending_action_releases: Vec::new(),
             last_tap_time: None,
             pre_parsed_kb_mapping,
+            touchpad_soft_action: Action::parse(&cfg.mouse.touchpad_soft_action),
+            touchpad_hard_action: Action::parse(&cfg.mouse.touchpad_hard_action),
         }
     }
 
@@ -174,7 +178,7 @@ impl ActiveSession {
         };
 
         if is_drag_tap {
-            self.apply_action(&cfg.mouse.touchpad_soft_action, true);
+            self.apply_action(self.touchpad_soft_action, true);
         }
 
         self.finger_tracking.insert((touchpad, finger), TouchState {
@@ -190,11 +194,11 @@ impl ActiveSession {
         if let Some(touch) = self.finger_tracking.remove(&(touchpad, finger)) {
             if touch.is_drag_tap {
                 // End the drag
-                self.apply_action(&cfg.mouse.touchpad_soft_action, false);
+                self.apply_action(self.touchpad_soft_action, false);
             } else if touch.is_tap && touch.start_time.elapsed().as_millis() < cfg.mouse.tap_time_ms {
                 // It's a quick tap
-                self.apply_action(&cfg.mouse.touchpad_soft_action, true);
-                self.pending_action_releases.push((cfg.mouse.touchpad_soft_action.clone(), 5));
+                self.apply_action(self.touchpad_soft_action, true);
+                self.pending_action_releases.push((self.touchpad_soft_action, 5));
                 self.last_tap_time = Some(std::time::Instant::now());
             }
         }
@@ -202,11 +206,11 @@ impl ActiveSession {
 
     pub fn handle_touchpad_button(&mut self, down: bool, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
-        self.apply_action(&cfg.mouse.touchpad_hard_action, down);
+        self.apply_action(self.touchpad_hard_action, down);
     }
 
-    fn apply_action(&mut self, action_str: &str, down: bool) {
-        match Action::parse(action_str) {
+    fn apply_action(&mut self, action: Action, down: bool) {
+        match action {
             Action::Mouse(btn) => {
                 if down {
                     self.mouse_state.buttons |= btn;
@@ -237,7 +241,7 @@ impl ActiveSession {
         while i < self.pending_action_releases.len() {
             if self.pending_action_releases[i].1 <= 1 {
                 let action = self.pending_action_releases.remove(i).0;
-                self.apply_action(&action, false);
+                self.apply_action(action, false);
             } else {
                 self.pending_action_releases[i].1 -= 1;
                 i += 1;
