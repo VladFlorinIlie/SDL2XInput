@@ -29,20 +29,19 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
           path-type: inherit
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-egl-headers
+          pacboy: >-
+            toolchain:p
+            egl-headers:p
+            gles-headers:p
+            cmake:p
+            ninja:p
 
       - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable-x86_64-pc-windows-gnu
 
-      # SDL3 static building requires CMake. By running inside the msys2 shell, 
-      # we guarantee that GCC and CMake automatically discover the EGL headers without manual path hacks.
       - name: Build Release Executable
         shell: msys2 {0}
         run: cargo build --release
