@@ -30,6 +30,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          path-type: inherit
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
@@ -40,11 +41,11 @@ jobs:
         with:
           toolchain: stable-x86_64-pc-windows-gnu
 
-      # SDL3 static building requires CMake, but windows-latest already has it installed!
+      # SDL3 static building requires CMake. By running inside the msys2 shell, 
+      # we guarantee that GCC and CMake automatically discover the EGL headers without manual path hacks.
       - name: Build Release Executable
-        run: |
-          $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
-          cargo build --release
+        shell: msys2 {0}
+        run: cargo build --release
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
