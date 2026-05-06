@@ -35,16 +35,19 @@ jobs:
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
 
-      - name: Install Rust (GNU toolchain)
+      - name: Install Rust (MSVC toolchain)
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable-x86_64-pc-windows-gnu
+          toolchain: stable-x86_64-pc-windows-msvc
 
-      # SDL3 static building requires CMake. By running inside the msys2 shell, 
-      # we guarantee that GCC and CMake automatically discover the EGL headers without manual path hacks.
+      # SDL3 static building requires CMake and the Windows SDK. The MSVC toolchain
+      # on windows-latest has all of this pre-configured perfectly. 
+      # We still append the MSYS2 MinGW bin path so that the Go compiler can find gcc
+      # for the libviiper.a CGO build step inside build.rs.
       - name: Build Release Executable
-        shell: msys2 {0}
-        run: cargo build --release
+        run: |
+          $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
+          cargo build --release
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
