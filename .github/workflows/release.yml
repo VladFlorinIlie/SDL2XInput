@@ -34,7 +34,6 @@ jobs:
           install: >-
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-libglvnd
             mingw-w64-x86_64-egl-headers
             mingw-w64-x86_64-angleproject
 
