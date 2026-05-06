@@ -1,32 +1,50 @@
 use sdl3::gamepad::{Gamepad, Axis, Button};
-use crate::viiper_bridge::Xbox360DeviceState;
+use crate::viiper_bridge::{Xbox360DeviceState, KeyboardDeviceState};
 use crate::config::{Config, XboxButton};
 
-pub fn update_from_sdl_gamepad(istate: &mut Xbox360DeviceState, gp: &Gamepad, cfg: &Config, deadzone: i16) {
+pub fn update_from_sdl_gamepad(
+    istate: &mut Xbox360DeviceState,
+    mut kb_state: Option<&mut KeyboardDeviceState>,
+    gp: &Gamepad,
+    cfg: &Config,
+    deadzone: i16,
+    pre_parsed_kb_mapping: &std::collections::HashMap<String, u8>,
+) {
     let mut b: u32 = 0;
 
-    // Helper: apply one physical button to its remapped virtual Xbox 360 bit.
-    let mut set = |pressed: bool, target: XboxButton| {
-        if pressed {
-            b |= xbox_button_bit(target);
+    // Helper: apply one physical button to its remapped virtual Xbox 360 bit,
+    // or intercept it entirely if mapped to the keyboard.
+    let mut set = |pressed: bool, target: XboxButton, phys_name: &str| {
+        if !pressed { return; }
+
+        if let Some(&keycode) = pre_parsed_kb_mapping.get(phys_name) {
+            if let Some(kb) = kb_state.as_mut() {
+                let idx = keycode as usize;
+                if idx < 256 {
+                    kb.key_bitmap[idx / 8] |= 1 << (idx % 8);
+                }
+            }
+            return; // EXCLUSIVE MAPPING: Do not pass to XInput!
         }
+
+        b |= xbox_button_bit(target);
     };
 
-    set(gp.button(Button::South),         cfg.buttons.south);
-    set(gp.button(Button::East),          cfg.buttons.east);
-    set(gp.button(Button::West),          cfg.buttons.west);
-    set(gp.button(Button::North),         cfg.buttons.north);
-    set(gp.button(Button::Start),         cfg.buttons.start);
-    set(gp.button(Button::Back),          cfg.buttons.back);
-    set(gp.button(Button::Guide),         cfg.buttons.guide);
-    set(gp.button(Button::LeftStick),     cfg.buttons.left_stick);
-    set(gp.button(Button::RightStick),    cfg.buttons.right_stick);
-    set(gp.button(Button::LeftShoulder),  cfg.buttons.left_shoulder);
-    set(gp.button(Button::RightShoulder), cfg.buttons.right_shoulder);
-    set(gp.button(Button::DPadUp),        cfg.buttons.dpad_up);
-    set(gp.button(Button::DPadDown),      cfg.buttons.dpad_down);
-    set(gp.button(Button::DPadLeft),      cfg.buttons.dpad_left);
-    set(gp.button(Button::DPadRight),     cfg.buttons.dpad_right);
+    set(gp.button(Button::South),         cfg.buttons.south,          "south");
+    set(gp.button(Button::East),          cfg.buttons.east,           "east");
+    set(gp.button(Button::West),          cfg.buttons.west,           "west");
+    set(gp.button(Button::North),         cfg.buttons.north,          "north");
+    set(gp.button(Button::Start),         cfg.buttons.start,          "start");
+    set(gp.button(Button::Back),          cfg.buttons.back,           "back");
+    set(gp.button(Button::Guide),         cfg.buttons.guide,          "guide");
+    set(gp.button(Button::LeftStick),     cfg.buttons.left_stick,     "left_stick");
+    set(gp.button(Button::RightStick),    cfg.buttons.right_stick,    "right_stick");
+    set(gp.button(Button::LeftShoulder),  cfg.buttons.left_shoulder,  "left_shoulder");
+    set(gp.button(Button::RightShoulder), cfg.buttons.right_shoulder, "right_shoulder");
+    set(gp.button(Button::DPadUp),        cfg.buttons.dpad_up,        "dpad_up");
+    set(gp.button(Button::DPadDown),      cfg.buttons.dpad_down,      "dpad_down");
+    set(gp.button(Button::DPadLeft),      cfg.buttons.dpad_left,      "dpad_left");
+    set(gp.button(Button::DPadRight),     cfg.buttons.dpad_right,     "dpad_right");
 
     istate.buttons = b;
 

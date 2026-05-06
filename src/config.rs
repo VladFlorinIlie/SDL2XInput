@@ -8,6 +8,8 @@ use anyhow::Result;
 pub struct Config {
     pub buttons: ButtonRemap,
     pub axes: AxisConfig,
+    pub mouse: MouseConfig,
+    pub keyboard: KeyboardConfig,
 }
 
 /// Remaps each physical SDL3 button to a virtual Xbox 360 button.
@@ -87,8 +89,43 @@ pub struct AxisConfig {
     pub swap_triggers:  bool,
 }
 
+/// Mouse emulation using touchpads or gyro.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct MouseConfig {
+    pub enabled: bool,
+    pub sensitivity: f32,
+    pub touchpad_soft_action: String,
+    pub touchpad_hard_action: String,
+    pub tap_distance_threshold: f32,
+    pub tap_time_ms: u128,
+    pub drag_tap_time_ms: u128,
+}
+
+impl Default for MouseConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            sensitivity: 1.5,
+            touchpad_soft_action: "MouseLeft".to_string(),
+            touchpad_hard_action: "MouseRight".to_string(),
+            tap_distance_threshold: 0.005,
+            tap_time_ms: 350,
+            drag_tap_time_ms: 400,
+        }
+    }
+}
+
+/// Keyboard emulation mapping physical buttons to keys.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct KeyboardConfig {
+    pub enabled: bool,
+    pub mapping: std::collections::HashMap<String, String>,
+}
+
 /// All valid Xbox 360 button targets that a physical button can be remapped to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum XboxButton {
     A, B, X, Y,

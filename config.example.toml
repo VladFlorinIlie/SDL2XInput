@@ -46,3 +46,49 @@
 
 # Swap left and right triggers
 # swap_triggers  = false
+
+# ─── Virtual Mouse (Touchpad) ─────────────────────────────────────────────────
+# Requires a physical controller with a touchpad (e.g. DualSense, Steam Controller).
+# Controls the virtual mouse cursor.
+[mouse]
+# Enable or disable the virtual mouse entirely (default: true)
+# enabled = true
+
+# Cursor movement sensitivity scalar (default: 1.5)
+# sensitivity = 1.5
+
+# Action triggered by a "soft touch" tap gesture (touch & release within 250ms).
+# touchpad_soft_action = "MouseLeft"
+
+# Action triggered by a "hard press" (clicking the mechanical switch under the pad).
+# touchpad_hard_action = "MouseRight"
+
+# ─── Advanced Touchpad Settings ───
+# Maximum allowed finger movement distance (squared) to still register as a tap.
+# If your finger rolls or jitters too much when tapping, increase this value.
+# Default: 0.005 (approx 7% of the touchpad)
+# tap_distance_threshold = 0.005
+
+# Maximum time (in milliseconds) a touch can last to be considered a quick tap.
+# tap_time_ms = 350
+
+# Maximum time (in milliseconds) allowed between a tap and a subsequent touch-and-hold
+# for it to register as a "tap-and-drag" gesture.
+# drag_tap_time_ms = 400
+
+# ─── Virtual Keyboard & Exclusive Routing ─────────────────────────────────────
+# Map PHYSICAL gamepad buttons to Virtual Keyboard keys.
+# Inputs routed to the keyboard are "exclusive" - they are consumed and WILL NOT
+# be sent to the Virtual Xbox Controller (XInput), preventing double-inputs in games!
+#
+# Valid targets include strings like: "Space", "Enter", "Escape", "Tab", "Shift", 
+# "A", "B", "1", "2", "F1", "ArrowUp", "MouseLeft", "MouseRight", etc.
+
+[keyboard]
+# Force spawn the keyboard even if no mappings are defined (default: false)
+# enabled = false
+
+[keyboard.mapping]
+# ── Example: Map the Guide button to Escape, and the 'A' button to Space ──
+# guide = "Escape"
+# south = "Space"

@@ -26,6 +26,9 @@ Many modern controllers (especially the Steam Controller or generic HID controll
 
 * **Integrated VIIPER Library**: Uses `libviiper` to handle USBIP communications directly. No external server process required.
 * **No Custom Drivers**: Uses the native Windows `xusb22.sys` driver via USBIP. No `ViGEmBus` required.
+* **Multi-Device Emulation**: Natively spawns a Virtual Xbox 360 Controller, Virtual Mouse, and Virtual Keyboard as a composite HID device.
+* **Touchpad to Mouse**: Full support for absolute-to-relative touchpad translation (e.g., DualSense, Steam Controller) with tap-to-click gesture recognition.
+* **Exclusive Keyboard Routing**: Map physical controller buttons to keyboard keys. Routed buttons are consumed and hidden from XInput, eliminating double-inputs.
 * **Rumble Support**: Supports bidirectional rumble pass-through from the virtual controller back to the physical hardware.
 * **Button Remapping**: Supports custom button layouts and axis inversions via a TOML configuration file.
 * **System Tray Integration**: Can run in the background. If launched via double-click, it detaches from the console and stays in the Windows system tray.
@@ -69,21 +72,25 @@ Double-click the `sdl2xinput.exe` file from Windows Explorer. The console will h
 ```
 When launched from a terminal, the application will print logs directly to the console and can be terminated with `Ctrl+C`.
 
-### Configuration (Button Remapping)
+### Configuration (Button Remapping & Mouse/Keyboard)
 
-The project supports comprehensive button remapping through a `config.toml` file. If the file is not provided, a default identity mapping is used.
+The project supports comprehensive button remapping, axis tweaks, and virtual mouse/keyboard configuration through a `config.toml` file. If the file is not provided, a default identity mapping is used.
 
-Example `config.toml` (Nintendo-style layout):
+Example `config.toml` snippet:
 ```toml
 [buttons]
 south = "b"
 east  = "a"
-west  = "y"
-north = "x"
 
-[axes]
-swap_triggers = false
-invert_left_y = false
+[mouse]
+enabled = true
+sensitivity = 1.5
+touchpad_soft_action = "MouseLeft"
+touchpad_hard_action = "MouseRight"
+
+[keyboard.mapping]
+# Map Guide button to Escape exclusively (prevents Guide from opening Game Bar/Steam)
+guide = "Escape"
 ```
 
 ### Command Line Arguments
