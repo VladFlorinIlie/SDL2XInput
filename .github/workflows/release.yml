@@ -26,26 +26,16 @@ jobs:
           go-version: '1.22'
 
       - name: Install MinGW (GCC)
-        uses: msys2/setup-msys2@v2
+        uses: egor-tensin/setup-mingw@v3
         with:
-          msystem: MINGW64
-          update: true
-          path-type: inherit
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-egl-headers
-            mingw-w64-x86_64-angleproject
+          platform: x64
 
       - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable-x86_64-pc-windows-gnu
 
-      # SDL3 static building requires CMake. By running inside the msys2 shell, 
-      # we guarantee that GCC and CMake automatically discover the libglvnd EGL headers.
       - name: Build Release Executable
-        shell: msys2 {0}
         run: cargo build --release
 
       - name: Upload Release Assets
