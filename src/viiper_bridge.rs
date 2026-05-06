@@ -116,14 +116,15 @@ pub struct ViiperManager {
 }
 
 impl ViiperManager {
-    pub fn connect(addr: Option<&str>) -> Result<Self> {
+    pub fn connect(addr: Option<&str>, polling_rate: u32) -> Result<Self> {
+        let flush_interval = (1_000 / polling_rate.max(1)) as u32;
         unsafe {
             let c_addr = addr.map(|s| std::ffi::CString::new(s).ok()).flatten();
             let config = USBServerConfig {
                 addr: c_addr.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
                 connection_timeout_ms: 30_000,
                 device_handler_connect_timeout_ms: 5_000,
-                write_batch_flush_interval_ms: 1,
+                write_batch_flush_interval_ms: flush_interval.max(1),
             };
             let mut server_handle = 0;
             if NewUSBServer(&config, &mut server_handle, Some(viiper_logger)) == 0 {

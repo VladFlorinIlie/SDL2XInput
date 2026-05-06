@@ -52,7 +52,7 @@ impl App {
         let event_pump = sdl_context.event_pump()?;
 
         tracing::info!("Starting native VIIPER USBIP Server...");
-        let viiper_manager = ViiperManager::connect(args.usb_server_addr.as_deref())?;
+        let viiper_manager = ViiperManager::connect(args.usb_server_addr.as_deref(), args.polling_rate)?;
 
         let tick_duration = Duration::from_micros(1_000_000 / args.polling_rate as u64);
         tracing::info!("Polling rate: {} Hz (tick: {:?})", args.polling_rate, tick_duration);
