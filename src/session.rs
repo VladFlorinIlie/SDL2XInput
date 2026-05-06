@@ -12,6 +12,7 @@ struct TouchState {
     last_y: f32,
     start_time: std::time::Instant,
     is_tap: bool,
+    is_drag_tap: bool,
 }
 
 pub struct ActiveSession {
@@ -34,6 +35,9 @@ pub struct ActiveSession {
     
     // Actions that need to be released after a few frames
     pending_action_releases: Vec<(String, u8)>,
+    
+    // For tap-and-drag gesture
+    last_tap_time: Option<std::time::Instant>,
 }
 
 impl ActiveSession {
@@ -82,6 +86,7 @@ impl ActiveSession {
             keyboard_state: KeyboardDeviceState::default(),
             finger_tracking: HashMap::new(),
             pending_action_releases: Vec::new(),
+            last_tap_time: None,
         }
     }
 
@@ -147,21 +152,37 @@ impl ActiveSession {
 
     pub fn handle_touchpad_down(&mut self, touchpad: i32, finger: i32, x: f32, y: f32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
+        
+        let now = std::time::Instant::now();
+        let is_drag_tap = if let Some(last) = self.last_tap_time {
+            now.duration_since(last).as_millis() < 300
+        } else {
+            false
+        };
+
+        if is_drag_tap {
+            self.apply_action(&cfg.mouse.touchpad_soft_action, true);
+        }
+
         self.finger_tracking.insert((touchpad, finger), TouchState {
             start_x: x, start_y: y, last_x: x, last_y: y,
-            start_time: std::time::Instant::now(),
+            start_time: now,
             is_tap: true,
+            is_drag_tap,
         });
     }
 
     pub fn handle_touchpad_up(&mut self, touchpad: i32, finger: i32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
         if let Some(touch) = self.finger_tracking.remove(&(touchpad, finger)) {
-            // If it's a tap and under 250ms
-            if touch.is_tap && touch.start_time.elapsed().as_millis() < 250 {
+            if touch.is_drag_tap {
+                // End the drag
+                self.apply_action(&cfg.mouse.touchpad_soft_action, false);
+            } else if touch.is_tap && touch.start_time.elapsed().as_millis() < 250 {
+                // It's a quick tap
                 self.apply_action(&cfg.mouse.touchpad_soft_action, true);
-                // Hold the action for 5 frames (~20ms at 250Hz) to ensure it registers
                 self.pending_action_releases.push((cfg.mouse.touchpad_soft_action.clone(), 5));
+                self.last_tap_time = Some(std::time::Instant::now());
             }
         }
     }
