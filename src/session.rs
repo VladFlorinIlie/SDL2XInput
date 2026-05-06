@@ -29,6 +29,11 @@ pub struct ActiveSession {
     mouse_state: MouseDeviceState,
     keyboard_state: KeyboardDeviceState,
     
+    // Cached states to avoid spamming IOCTLs
+    last_xbox_state: Xbox360DeviceState,
+    last_mouse_buttons: u8,
+    last_keyboard_state: KeyboardDeviceState,
+    
     // Touchpad Absolute Tracking
     // Maps (touchpad_id, finger_id) -> TouchState
     finger_tracking: HashMap<(i32, i32), TouchState>,
@@ -98,6 +103,9 @@ impl ActiveSession {
             mouse_handle, keyboard_handle,
             mouse_state: MouseDeviceState::default(),
             keyboard_state: KeyboardDeviceState::default(),
+            last_xbox_state: Xbox360DeviceState::default(),
+            last_mouse_buttons: 0,
+            last_keyboard_state: KeyboardDeviceState::default(),
             finger_tracking: HashMap::new(),
             pending_action_releases: Vec::new(),
             last_tap_time: None,
@@ -253,14 +261,24 @@ impl ActiveSession {
 
         crate::mapping::update_from_sdl_gamepad(&mut state, Some(&mut kb_state), &self.gamepad, cfg, deadzone, &self.pre_parsed_kb_mapping);
         
-        if let Err(e) = viiper.set_xbox360_state(self.dev_handle, state) {
-            tracing::error!("Error sending state to viiper: {}", e);
+        if state != self.last_xbox_state {
+            if let Err(e) = viiper.set_xbox360_state(self.dev_handle, state) {
+                tracing::error!("Error sending state to viiper: {}", e);
+            }
+            self.last_xbox_state = state;
         }
 
         if let Some(mh) = self.mouse_handle {
-            if let Err(e) = viiper.set_mouse_state(mh, self.mouse_state) {
-                tracing::error!("Error sending mouse state: {}", e);
+            let has_movement = self.mouse_state.dx != 0 || self.mouse_state.dy != 0 || self.mouse_state.wheel != 0 || self.mouse_state.pan != 0;
+            let buttons_changed = self.mouse_state.buttons != self.last_mouse_buttons;
+            
+            if has_movement || buttons_changed {
+                if let Err(e) = viiper.set_mouse_state(mh, self.mouse_state) {
+                    tracing::error!("Error sending mouse state: {}", e);
+                }
+                self.last_mouse_buttons = self.mouse_state.buttons;
             }
+
             // Mouse deltas are consumed each poll cycle, so we reset them
             self.mouse_state.dx = 0;
             self.mouse_state.dy = 0;
@@ -269,8 +287,11 @@ impl ActiveSession {
         }
 
         if let Some(kh) = self.keyboard_handle {
-            if let Err(e) = viiper.set_keyboard_state(kh, kb_state) {
-                tracing::error!("Error sending keyboard state: {}", e);
+            if kb_state != self.last_keyboard_state {
+                if let Err(e) = viiper.set_keyboard_state(kh, kb_state) {
+                    tracing::error!("Error sending keyboard state: {}", e);
+                }
+                self.last_keyboard_state = kb_state;
             }
         }
     }

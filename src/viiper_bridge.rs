@@ -16,7 +16,7 @@ pub type USBServerHandle = usize;
 pub type Xbox360DeviceHandle = usize;
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Xbox360DeviceState {
     pub buttons: u32,
     pub lt: u8,
@@ -32,7 +32,7 @@ pub type MouseDeviceHandle = usize;
 pub type KeyboardDeviceHandle = usize;
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct MouseDeviceState {
     pub buttons: u8,
     pub dx: i16,
@@ -42,7 +42,7 @@ pub struct MouseDeviceState {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct KeyboardDeviceState {
     pub modifiers: u8,
     pub key_bitmap: [u8; 32],
