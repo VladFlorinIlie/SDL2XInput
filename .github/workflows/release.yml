@@ -29,15 +29,11 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
-          path-type: inherit
-          install: >-
-            mingw-w64-x86_64-cmake
-            git
-            mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-gles-headers
-            mingw-w64-x86_64-egl-headers
+          pacboy: >-
+            toolchain:p
+            egl-headers:p
+            cmake:p
+            ninja:p
 
       - name: Install Rust (GNU toolchain)
         uses: dtolnay/rust-toolchain@stable
@@ -47,8 +43,6 @@ jobs:
       - name: Build Release Executable
         shell: msys2 {0}
         run: cargo build --release
-        env:
-          CMAKE: "C:\\msys64\\mingw64\\bin\\cmake.exe"
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
