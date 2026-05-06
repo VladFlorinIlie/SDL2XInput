@@ -38,6 +38,9 @@ pub struct ActiveSession {
     
     // For tap-and-drag gesture
     last_tap_time: Option<std::time::Instant>,
+    
+    // Cached mapping for O(1) hot-loop performance
+    pre_parsed_kb_mapping: HashMap<String, u8>,
 }
 
 impl ActiveSession {
@@ -58,7 +61,7 @@ impl ActiveSession {
             None
         };
 
-        let needs_keyboard = cfg.keyboard.enabled || {
+        let needs_keyboard = cfg.keyboard.enabled || !cfg.keyboard.mapping.is_empty() || {
             matches!(Action::parse(&cfg.mouse.touchpad_soft_action), Action::Keyboard(_)) ||
             matches!(Action::parse(&cfg.mouse.touchpad_hard_action), Action::Keyboard(_))
         };
@@ -78,6 +81,15 @@ impl ActiveSession {
             None
         };
 
+        let mut pre_parsed_kb_mapping = HashMap::new();
+        if needs_keyboard {
+            for (phys_name, mapped_key_name) in &cfg.keyboard.mapping {
+                if let Action::Keyboard(keycode) = Action::parse(mapped_key_name) {
+                    pre_parsed_kb_mapping.insert(phys_name.clone(), keycode);
+                }
+            }
+        }
+
         Self { 
             gamepad, dev_handle, bus_id, rumble_rx, 
             rumble_state: (0, 0), last_rumble_update: None,
@@ -87,6 +99,7 @@ impl ActiveSession {
             finger_tracking: HashMap::new(),
             pending_action_releases: Vec::new(),
             last_tap_time: None,
+            pre_parsed_kb_mapping,
         }
     }
 
@@ -234,7 +247,7 @@ impl ActiveSession {
         // Preserve any keys held down by touchpad actions
         kb_state.key_bitmap = self.keyboard_state.key_bitmap;
 
-        crate::mapping::update_from_sdl_gamepad(&mut state, Some(&mut kb_state), &self.gamepad, cfg, deadzone);
+        crate::mapping::update_from_sdl_gamepad(&mut state, Some(&mut kb_state), &self.gamepad, cfg, deadzone, &self.pre_parsed_kb_mapping);
         
         if let Err(e) = viiper.set_xbox360_state(self.dev_handle, state) {
             tracing::error!("Error sending state to viiper: {}", e);
