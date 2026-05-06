@@ -32,9 +32,9 @@ jobs:
           update: true
           path-type: inherit
           install: >-
-            cmake
+            mingw-w64-x86_64-cmake
             git
-            ninja
+            mingw-w64-x86_64-ninja
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-gles-headers
             mingw-w64-x86_64-egl-headers
@@ -47,6 +47,8 @@ jobs:
       - name: Build Release Executable
         shell: msys2 {0}
         run: cargo build --release
+        env:
+          CMAKE: "C:\\msys64\\mingw64\\bin\\cmake.exe"
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
