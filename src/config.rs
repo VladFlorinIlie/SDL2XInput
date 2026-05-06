@@ -97,6 +97,9 @@ pub struct MouseConfig {
     pub sensitivity: f32,
     pub touchpad_soft_action: String,
     pub touchpad_hard_action: String,
+    pub tap_distance_threshold: f32,
+    pub tap_time_ms: u128,
+    pub drag_tap_time_ms: u128,
 }
 
 impl Default for MouseConfig {
@@ -106,6 +109,9 @@ impl Default for MouseConfig {
             sensitivity: 1.5,
             touchpad_soft_action: "MouseLeft".to_string(),
             touchpad_hard_action: "MouseRight".to_string(),
+            tap_distance_threshold: 0.005,
+            tap_time_ms: 350,
+            drag_tap_time_ms: 400,
         }
     }
 }

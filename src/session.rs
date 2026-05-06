@@ -134,9 +134,9 @@ impl ActiveSession {
             let dx = x - touch.last_x;
             let dy = y - touch.last_y;
             
-            // If finger moves more than 1% of the touchpad, it's no longer a tap
+            // Relaxed distance threshold for a tap (approx 7% of touchpad) to allow for finger roll
             let dist_sq = (x - touch.start_x).powi(2) + (y - touch.start_y).powi(2);
-            if dist_sq > 0.0001 {
+            if dist_sq > cfg.mouse.tap_distance_threshold {
                 touch.is_tap = false;
             }
 
@@ -155,7 +155,7 @@ impl ActiveSession {
         
         let now = std::time::Instant::now();
         let is_drag_tap = if let Some(last) = self.last_tap_time {
-            now.duration_since(last).as_millis() < 300
+            now.duration_since(last).as_millis() < cfg.mouse.drag_tap_time_ms
         } else {
             false
         };
@@ -178,7 +178,7 @@ impl ActiveSession {
             if touch.is_drag_tap {
                 // End the drag
                 self.apply_action(&cfg.mouse.touchpad_soft_action, false);
-            } else if touch.is_tap && touch.start_time.elapsed().as_millis() < 250 {
+            } else if touch.is_tap && touch.start_time.elapsed().as_millis() < cfg.mouse.tap_time_ms {
                 // It's a quick tap
                 self.apply_action(&cfg.mouse.touchpad_soft_action, true);
                 self.pending_action_releases.push((cfg.mouse.touchpad_soft_action.clone(), 5));
