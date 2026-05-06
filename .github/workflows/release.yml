@@ -33,6 +33,7 @@ jobs:
           pacboy: >-
             toolchain:p
             egl-headers:p
+            gles-headers:p
             cmake:p
             ninja:p
 
