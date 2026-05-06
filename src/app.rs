@@ -102,9 +102,9 @@ impl App {
                             session.handle_touchpad_motion(touchpad, finger, x, y, &self.config);
                         }
                     }
-                    sdl3::event::Event::ControllerTouchpadDown { which, touchpad, finger, .. } => {
+                    sdl3::event::Event::ControllerTouchpadDown { which, touchpad, finger, x, y, .. } => {
                         if let Some(session) = self.active_sessions.get_mut(&which) {
-                            session.handle_touchpad_down(touchpad, finger, &self.config);
+                            session.handle_touchpad_down(touchpad, finger, x, y, &self.config);
                         }
                     }
                     sdl3::event::Event::ControllerTouchpadUp { which, touchpad, finger, .. } => {

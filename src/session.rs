@@ -5,6 +5,15 @@ use crate::config::Config;
 use crate::keys::Action;
 use std::collections::HashMap;
 
+struct TouchState {
+    start_x: f32,
+    start_y: f32,
+    last_x: f32,
+    last_y: f32,
+    start_time: std::time::Instant,
+    is_tap: bool,
+}
+
 pub struct ActiveSession {
     pub gamepad: Gamepad,
     pub dev_handle: Xbox360DeviceHandle,
@@ -20,8 +29,11 @@ pub struct ActiveSession {
     keyboard_state: KeyboardDeviceState,
     
     // Touchpad Absolute Tracking
-    // Maps (touchpad_id, finger_id) -> (x, y)
-    finger_tracking: HashMap<(i32, i32), (f32, f32)>,
+    // Maps (touchpad_id, finger_id) -> TouchState
+    finger_tracking: HashMap<(i32, i32), TouchState>,
+    
+    // Actions that need to be released after a few frames
+    pending_action_releases: Vec<(String, u8)>,
 }
 
 impl ActiveSession {
@@ -42,7 +54,12 @@ impl ActiveSession {
             None
         };
 
-        let keyboard_handle = if cfg.keyboard.enabled || cfg.mouse.enabled {
+        let needs_keyboard = cfg.keyboard.enabled || {
+            matches!(Action::parse(&cfg.mouse.touchpad_soft_action), Action::Keyboard(_)) ||
+            matches!(Action::parse(&cfg.mouse.touchpad_hard_action), Action::Keyboard(_))
+        };
+
+        let keyboard_handle = if needs_keyboard {
             match viiper.create_virtual_keyboard(bus_id) {
                 Ok(h) => {
                     tracing::info!("Spawned Virtual Keyboard");
@@ -64,6 +81,7 @@ impl ActiveSession {
             mouse_state: MouseDeviceState::default(),
             keyboard_state: KeyboardDeviceState::default(),
             finger_tracking: HashMap::new(),
+            pending_action_releases: Vec::new(),
         }
     }
 
@@ -107,27 +125,45 @@ impl ActiveSession {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
         
         let key = (touchpad, finger);
-        if let Some((last_x, last_y)) = self.finger_tracking.get(&key) {
-            let dx = x - last_x;
-            let dy = y - last_y;
+        if let Some(touch) = self.finger_tracking.get_mut(&key) {
+            let dx = x - touch.last_x;
+            let dy = y - touch.last_y;
             
-            // Multiply by base resolution scalar (e.g. 1920) and sensitivity
-            let scalar = 1920.0 * cfg.mouse.sensitivity;
+            // If finger moves more than 1% of the touchpad, it's no longer a tap
+            let dist_sq = (x - touch.start_x).powi(2) + (y - touch.start_y).powi(2);
+            if dist_sq > 0.0001 {
+                touch.is_tap = false;
+            }
+
+            // Multiply by base resolution scalar and sensitivity
+            let scalar = 800.0 * cfg.mouse.sensitivity;
             self.mouse_state.dx += (dx * scalar) as i16;
             self.mouse_state.dy += (dy * scalar) as i16;
+            
+            touch.last_x = x;
+            touch.last_y = y;
         }
-        self.finger_tracking.insert(key, (x, y));
     }
 
-    pub fn handle_touchpad_down(&mut self, _touchpad: i32, _finger: i32, cfg: &Config) {
+    pub fn handle_touchpad_down(&mut self, touchpad: i32, finger: i32, x: f32, y: f32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
-        self.apply_action(&cfg.mouse.touchpad_soft_action, true);
+        self.finger_tracking.insert((touchpad, finger), TouchState {
+            start_x: x, start_y: y, last_x: x, last_y: y,
+            start_time: std::time::Instant::now(),
+            is_tap: true,
+        });
     }
 
     pub fn handle_touchpad_up(&mut self, touchpad: i32, finger: i32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
-        self.finger_tracking.remove(&(touchpad, finger));
-        self.apply_action(&cfg.mouse.touchpad_soft_action, false);
+        if let Some(touch) = self.finger_tracking.remove(&(touchpad, finger)) {
+            // If it's a tap and under 250ms
+            if touch.is_tap && touch.start_time.elapsed().as_millis() < 250 {
+                self.apply_action(&cfg.mouse.touchpad_soft_action, true);
+                // Hold the action for 5 frames (~20ms at 250Hz) to ensure it registers
+                self.pending_action_releases.push((cfg.mouse.touchpad_soft_action.clone(), 5));
+            }
+        }
     }
 
     pub fn handle_touchpad_button(&mut self, down: bool, cfg: &Config) {
@@ -162,6 +198,18 @@ impl ActiveSession {
         let mut state = Xbox360DeviceState::default();
         let mut kb_state = KeyboardDeviceState::default();
         
+        // Process pending action releases
+        let mut i = 0;
+        while i < self.pending_action_releases.len() {
+            if self.pending_action_releases[i].1 <= 1 {
+                let action = self.pending_action_releases.remove(i).0;
+                self.apply_action(&action, false);
+            } else {
+                self.pending_action_releases[i].1 -= 1;
+                i += 1;
+            }
+        }
+
         // Preserve any keys held down by touchpad actions
         kb_state.key_bitmap = self.keyboard_state.key_bitmap;
 
