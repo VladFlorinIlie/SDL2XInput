@@ -21,7 +21,6 @@ pub struct ActiveSession {
     pub bus_id: u32,
     pub rumble_rx: mpsc::Receiver<(u8, u8)>,
     rumble_state: (u8, u8),
-    last_rumble_update: Option<std::time::Instant>,
 
     // Mouse and Keyboard
     pub mouse_handle: Option<MouseDeviceHandle>,
@@ -99,7 +98,7 @@ impl ActiveSession {
 
         Self { 
             gamepad, dev_handle, bus_id, rumble_rx, 
-            rumble_state: (0, 0), last_rumble_update: None,
+            rumble_state: (0, 0),
             mouse_handle, keyboard_handle,
             mouse_state: MouseDeviceState::default(),
             keyboard_state: KeyboardDeviceState::default(),
@@ -124,29 +123,19 @@ impl ActiveSession {
             }
         }
         
-        let (left, right) = self.rumble_state;
-
-        let now = std::time::Instant::now();
-        let needs_refresh = if let Some(last) = self.last_rumble_update {
-            now.duration_since(last).as_millis() >= 200
-        } else {
-            true
-        };
-
-        if changed || (needs_refresh && (left > 0 || right > 0)) {
+        if changed {
+            let (left, right) = self.rumble_state;
             if left > 0 || right > 0 {
                 let left_u16 = (left as u16) << 8 | left as u16;
                 let right_u16 = (right as u16) << 8 | right as u16;
 
-                if let Err(e) = self.gamepad.set_rumble(left_u16, right_u16, 500) {
+                if let Err(e) = self.gamepad.set_rumble(left_u16, right_u16, 3_600_000) {
                     tracing::error!("SDL3 set_rumble error: {}", e);
                 }
-                self.last_rumble_update = Some(now);
-            } else if changed {
+            } else {
                 if let Err(e) = self.gamepad.set_rumble(0, 0, 0) {
                     tracing::error!("SDL3 set_rumble (stop) error: {}", e);
                 }
-                self.last_rumble_update = None;
             }
         }
     }
