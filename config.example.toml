@@ -12,6 +12,9 @@
 #   left_stick, right_stick               → stick clicks
 #   left_shoulder, right_shoulder         → bumpers
 #   dpad_up, dpad_down, dpad_left, dpad_right
+#   left_paddle1, right_paddle1, left_paddle2, right_paddle2 → back paddles
+#   misc1, misc2, misc3, misc4, misc5, misc6                 → extra buttons
+#   touchpad                                                 → touchpad button
 #
 # Valid virtual Xbox 360 targets (right side):
 #   a, b, x, y
@@ -92,3 +95,8 @@
 # ── Example: Map the Guide button to Escape, and the 'A' button to Space ──
 # guide = "Escape"
 # south = "Space"
+
+# ── Example: Map back paddles and extra buttons to keyboard / mouse inputs ──
+# left_paddle1 = "shift"
+# right_paddle1 = "mouseleft"
+# misc1 = "enter"

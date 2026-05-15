@@ -14,7 +14,7 @@ pub fn update_from_sdl_gamepad(
 
     // Helper: apply one physical button to its remapped virtual Xbox 360 bit,
     // or intercept it entirely if mapped to the keyboard.
-    let mut set = |pressed: bool, target: XboxButton, phys_name: &str| {
+    let mut set_opt = |pressed: bool, target: Option<XboxButton>, phys_name: &str| {
         if !pressed { return; }
 
         if let Some(&keycode) = pre_parsed_kb_mapping.get(phys_name) {
@@ -27,7 +27,13 @@ pub fn update_from_sdl_gamepad(
             return; // EXCLUSIVE MAPPING: Do not pass to XInput!
         }
 
-        b |= xbox_button_bit(target);
+        if let Some(t) = target {
+            b |= xbox_button_bit(t);
+        }
+    };
+
+    let mut set = |pressed: bool, target: XboxButton, phys_name: &str| {
+        set_opt(pressed, Some(target), phys_name);
     };
 
     set(gp.button(Button::South),         cfg.buttons.south,          "south");
@@ -45,6 +51,18 @@ pub fn update_from_sdl_gamepad(
     set(gp.button(Button::DPadDown),      cfg.buttons.dpad_down,      "dpad_down");
     set(gp.button(Button::DPadLeft),      cfg.buttons.dpad_left,      "dpad_left");
     set(gp.button(Button::DPadRight),     cfg.buttons.dpad_right,     "dpad_right");
+
+    set_opt(gp.button(Button::LeftPaddle1),  cfg.buttons.left_paddle1,  "left_paddle1");
+    set_opt(gp.button(Button::RightPaddle1), cfg.buttons.right_paddle1, "right_paddle1");
+    set_opt(gp.button(Button::LeftPaddle2),  cfg.buttons.left_paddle2,  "left_paddle2");
+    set_opt(gp.button(Button::RightPaddle2), cfg.buttons.right_paddle2, "right_paddle2");
+    set_opt(gp.button(Button::Misc1),        cfg.buttons.misc1,         "misc1");
+    set_opt(gp.button(Button::Misc2),        cfg.buttons.misc2,         "misc2");
+    set_opt(gp.button(Button::Misc3),        cfg.buttons.misc3,         "misc3");
+    set_opt(gp.button(Button::Misc4),        cfg.buttons.misc4,         "misc4");
+    set_opt(gp.button(Button::Misc5),        cfg.buttons.misc5,         "misc5");
+    set_opt(gp.button(Button::Misc6),        cfg.buttons.misc6,         "misc6");
+    set_opt(gp.button(Button::Touchpad),     cfg.buttons.touchpad,      "touchpad");
 
     istate.buttons = b;
 

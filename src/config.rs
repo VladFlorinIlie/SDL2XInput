@@ -48,6 +48,18 @@ pub struct ButtonRemap {
     pub dpad_down:      XboxButton,
     pub dpad_left:      XboxButton,
     pub dpad_right:     XboxButton,
+    // Extra / Paddles
+    pub left_paddle1:   Option<XboxButton>,
+    pub right_paddle1:  Option<XboxButton>,
+    pub left_paddle2:   Option<XboxButton>,
+    pub right_paddle2:  Option<XboxButton>,
+    pub misc1:          Option<XboxButton>,
+    pub misc2:          Option<XboxButton>,
+    pub misc3:          Option<XboxButton>,
+    pub misc4:          Option<XboxButton>,
+    pub misc5:          Option<XboxButton>,
+    pub misc6:          Option<XboxButton>,
+    pub touchpad:       Option<XboxButton>,
 }
 
 impl Default for ButtonRemap {
@@ -69,6 +81,17 @@ impl Default for ButtonRemap {
             dpad_down:      XboxButton::DPadDown,
             dpad_left:      XboxButton::DPadLeft,
             dpad_right:     XboxButton::DPadRight,
+            left_paddle1:   None,
+            right_paddle1:  None,
+            left_paddle2:   None,
+            right_paddle2:  None,
+            misc1:          None,
+            misc2:          None,
+            misc3:          None,
+            misc4:          None,
+            misc5:          None,
+            misc6:          None,
+            touchpad:       None,
         }
     }
 }
