@@ -171,12 +171,23 @@ pub enum XboxButton {
 }
 
 impl Config {
-    /// Load config from a TOML file. Returns `Config::default()` if the path is None.
+    /// Load config from a TOML file.
+    /// Priority: explicit --config path > config.toml next to the executable > built-in defaults.
     pub fn load(path: Option<&Path>) -> Result<Self> {
-        match path {
-            None => Ok(Self::default()),
+        let resolved = path.map(|p| p.to_path_buf()).or_else(|| {
+            std::env::current_exe().ok().and_then(|exe| {
+                let candidate = exe.with_file_name("config.toml");
+                if candidate.exists() { Some(candidate) } else { None }
+            })
+        });
+
+        match resolved {
+            None => {
+                tracing::info!("No config file found, using built-in defaults.");
+                Ok(Self::default())
+            }
             Some(p) => {
-                let raw = std::fs::read_to_string(p)?;
+                let raw = std::fs::read_to_string(&p)?;
                 let cfg: Config = toml::from_str(&raw)?;
                 tracing::info!("Loaded config from: {}", p.display());
                 Ok(cfg)
