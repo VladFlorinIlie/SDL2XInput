@@ -10,6 +10,7 @@ pub struct Config {
     pub axes: AxisConfig,
     pub mouse: MouseConfig,
     pub keyboard: KeyboardConfig,
+    pub mapping: std::collections::HashMap<String, String>,
 }
 
 /// Remaps each physical SDL3 button to a virtual Xbox 360 button.
@@ -123,6 +124,13 @@ pub struct MouseConfig {
     pub tap_distance_threshold: f32,
     pub tap_time_ms: u128,
     pub drag_tap_time_ms: u128,
+    
+    // Gyro settings
+    pub gyro_enabled: bool,
+    pub gyro_sensitivity_x: f32,
+    pub gyro_sensitivity_y: f32,
+    pub gyro_invert_x: bool,
+    pub gyro_invert_y: bool,
 }
 
 impl Default for MouseConfig {
@@ -134,7 +142,12 @@ impl Default for MouseConfig {
             touchpad_hard_action: "MouseRight".to_string(),
             tap_distance_threshold: 0.005,
             tap_time_ms: 350,
-            drag_tap_time_ms: 400,
+            drag_tap_time_ms: 200,
+            gyro_enabled: false,
+            gyro_sensitivity_x: 1.0,
+            gyro_sensitivity_y: 1.0,
+            gyro_invert_x: false,
+            gyro_invert_y: false,
         }
     }
 }
@@ -144,7 +157,6 @@ impl Default for MouseConfig {
 #[serde(default)]
 pub struct KeyboardConfig {
     pub enabled: bool,
-    pub mapping: std::collections::HashMap<String, String>,
 }
 
 /// All valid Xbox 360 button targets that a physical button can be remapped to.

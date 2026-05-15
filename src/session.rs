@@ -13,7 +13,10 @@ struct TouchState {
     start_time: std::time::Instant,
     is_tap: bool,
     is_drag_tap: bool,
+    drag_committed: bool, // true once we've actually started holding the click
 }
+
+
 
 pub struct ActiveSession {
     pub gamepad: Gamepad,
@@ -44,18 +47,51 @@ pub struct ActiveSession {
     last_tap_time: Option<std::time::Instant>,
     
     // Cached mapping for O(1) hot-loop performance
-    pre_parsed_kb_mapping: HashMap<String, u8>,
+    pre_parsed_kb_mapping: HashMap<String, Action>,
     touchpad_soft_action: Action,
     touchpad_hard_action: Action,
+    
+    has_gyro_mapping: bool,
+    is_gyro_active: bool,
+    last_gyro_timestamp: u64,
+    mouse_accum_x: f32,
+    mouse_accum_y: f32,
 }
 
 impl ActiveSession {
     pub fn new(gamepad: Gamepad, dev_handle: Xbox360DeviceHandle, bus_id: u32, rumble_rx: mpsc::Receiver<(u8, u8)>, viiper: &ViiperManager, cfg: &Config) -> Self {
-        let touchpads = gamepad.touchpads_count();
-        let mouse_handle = if touchpads > 0 && cfg.mouse.enabled {
+        let mut pre_parsed_kb_mapping = HashMap::new();
+        let mut needs_mouse = gamepad.touchpads_count() > 0 || cfg.mouse.gyro_enabled;
+        let mut needs_keyboard = cfg.keyboard.enabled;
+        let mut has_gyro_mapping = false;
+
+        for (phys_name, mapped_key_name) in &cfg.mapping {
+            let action = Action::parse(mapped_key_name);
+            if action != Action::None {
+                pre_parsed_kb_mapping.insert(phys_name.clone(), action);
+                match action {
+                    Action::Keyboard(_) => needs_keyboard = true,
+                    Action::Mouse(_) => needs_mouse = true,
+                    Action::Gyro => has_gyro_mapping = true,
+                    _ => {}
+                }
+            }
+        }
+
+        let tp_soft = Action::parse(&cfg.mouse.touchpad_soft_action);
+        let tp_hard = Action::parse(&cfg.mouse.touchpad_hard_action);
+        if matches!(tp_soft, Action::Keyboard(_)) || matches!(tp_hard, Action::Keyboard(_)) {
+            needs_keyboard = true;
+        }
+
+        if !cfg.mouse.enabled {
+            needs_mouse = false;
+        }
+
+        let mouse_handle = if needs_mouse {
             match viiper.create_virtual_mouse(bus_id) {
                 Ok(h) => {
-                    tracing::info!("Spawned Virtual Mouse for gamepad with {} touchpads", touchpads);
+                    tracing::info!("Spawned Virtual Mouse");
                     Some(h)
                 }
                 Err(e) => {
@@ -65,11 +101,6 @@ impl ActiveSession {
             }
         } else {
             None
-        };
-
-        let needs_keyboard = cfg.keyboard.enabled || !cfg.keyboard.mapping.is_empty() || {
-            matches!(Action::parse(&cfg.mouse.touchpad_soft_action), Action::Keyboard(_)) ||
-            matches!(Action::parse(&cfg.mouse.touchpad_hard_action), Action::Keyboard(_))
         };
 
         let keyboard_handle = if needs_keyboard {
@@ -87,15 +118,6 @@ impl ActiveSession {
             None
         };
 
-        let mut pre_parsed_kb_mapping = HashMap::new();
-        if needs_keyboard {
-            for (phys_name, mapped_key_name) in &cfg.keyboard.mapping {
-                if let Action::Keyboard(keycode) = Action::parse(mapped_key_name) {
-                    pre_parsed_kb_mapping.insert(phys_name.clone(), keycode);
-                }
-            }
-        }
-
         Self { 
             gamepad, dev_handle, bus_id, rumble_rx, 
             rumble_state: (0, 0),
@@ -111,6 +133,11 @@ impl ActiveSession {
             pre_parsed_kb_mapping,
             touchpad_soft_action: Action::parse(&cfg.mouse.touchpad_soft_action),
             touchpad_hard_action: Action::parse(&cfg.mouse.touchpad_hard_action),
+            has_gyro_mapping,
+            is_gyro_active: !has_gyro_mapping,
+            last_gyro_timestamp: 0,
+            mouse_accum_x: 0.0,
+            mouse_accum_y: 0.0,
         }
     }
 
@@ -140,6 +167,59 @@ impl ActiveSession {
         }
     }
 
+    pub fn handle_gyro_motion(&mut self, data: [f32; 3], timestamp: u64, cfg: &Config) {
+        if self.mouse_handle.is_none() || !cfg.mouse.enabled || !cfg.mouse.gyro_enabled {
+            self.last_gyro_timestamp = timestamp;
+            return;
+        }
+        
+        if !self.is_gyro_active {
+            self.last_gyro_timestamp = timestamp;
+            return;
+        }
+
+        let dt = if self.last_gyro_timestamp == 0 {
+            0.0
+        } else {
+            (timestamp - self.last_gyro_timestamp) as f32 / 1_000_000_000.0 // ns to sec
+        };
+        self.last_gyro_timestamp = timestamp;
+
+        if dt <= 0.0 || dt > 0.1 {
+            return; // Ignore gaps > 100ms
+        }
+
+        let pitch = data[0]; // X axis (pitch)
+        let yaw = data[1];   // Y axis (yaw)
+        // roll = data[2];   // Z axis (roll)
+        
+        // 1 rad/s ~ 57 deg/s.
+        // We set a base sensitivity of 1000 pixels per radian.
+        let base_pixels_per_rad = 1000.0;
+        let scalar = base_pixels_per_rad * cfg.mouse.sensitivity;
+        
+        // Negate both axes to match standard mouse direction mapping, then apply optional inversion
+        let sign_x = if cfg.mouse.gyro_invert_x { 1.0 } else { -1.0 };
+        let sign_y = if cfg.mouse.gyro_invert_y { 1.0 } else { -1.0 };
+        let dx = sign_x * yaw   * cfg.mouse.gyro_sensitivity_x * scalar * dt;
+        let dy = sign_y * pitch * cfg.mouse.gyro_sensitivity_y * scalar * dt;
+
+        self.mouse_accum_x += dx;
+        self.mouse_accum_y += dy;
+
+        if self.mouse_accum_x.abs() >= 1.0 {
+            let trunc_x = self.mouse_accum_x.trunc();
+            self.mouse_state.dx += trunc_x as i16;
+            self.mouse_accum_x -= trunc_x;
+        }
+
+        if self.mouse_accum_y.abs() >= 1.0 {
+            let trunc_y = self.mouse_accum_y.trunc();
+            self.mouse_state.dy += trunc_y as i16;
+            self.mouse_accum_y -= trunc_y;
+        }
+    }
+
     pub fn handle_touchpad_motion(&mut self, touchpad: i32, finger: i32, x: f32, y: f32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
         
@@ -154,13 +234,23 @@ impl ActiveSession {
                 touch.is_tap = false;
             }
 
+            // Commit drag-tap only once the finger has actually moved enough from the start
+            if touch.is_drag_tap && !touch.drag_committed && dist_sq > cfg.mouse.tap_distance_threshold {
+                self.apply_action(self.touchpad_soft_action, true);
+                if let Some(t) = self.finger_tracking.get_mut(&key) {
+                    t.drag_committed = true;
+                }
+            }
+
             // Multiply by base resolution scalar and sensitivity
             let scalar = 800.0 * cfg.mouse.sensitivity;
             self.mouse_state.dx += (dx * scalar) as i16;
             self.mouse_state.dy += (dy * scalar) as i16;
             
-            touch.last_x = x;
-            touch.last_y = y;
+            if let Some(touch) = self.finger_tracking.get_mut(&key) {
+                touch.last_x = x;
+                touch.last_y = y;
+            }
         }
     }
 
@@ -183,14 +273,15 @@ impl ActiveSession {
             start_time: now,
             is_tap: true,
             is_drag_tap,
+            drag_committed: false,
         });
     }
 
     pub fn handle_touchpad_up(&mut self, touchpad: i32, finger: i32, cfg: &Config) {
         if self.mouse_handle.is_none() || !cfg.mouse.enabled { return; }
         if let Some(touch) = self.finger_tracking.remove(&(touchpad, finger)) {
-            if touch.is_drag_tap {
-                // End the drag
+            if touch.is_drag_tap && touch.drag_committed {
+                // End the committed drag
                 self.apply_action(self.touchpad_soft_action, false);
             } else if touch.is_tap && touch.start_time.elapsed().as_millis() < cfg.mouse.tap_time_ms {
                 // It's a quick tap
@@ -225,7 +316,7 @@ impl ActiveSession {
                     }
                 }
             }
-            Action::None => {}
+            Action::Gyro | Action::None => {}
         }
     }
 
@@ -247,8 +338,18 @@ impl ActiveSession {
 
         // Preserve any keys held down by touchpad actions
         kb_state.key_bitmap = self.keyboard_state.key_bitmap;
+        self.is_gyro_active = !self.has_gyro_mapping; // Reset to default each tick, mapping.rs will set it to true if mapped button is pressed
 
-        crate::mapping::update_from_sdl_gamepad(&mut state, Some(&mut kb_state), &self.gamepad, cfg, deadzone, &self.pre_parsed_kb_mapping);
+        crate::mapping::update_from_sdl_gamepad(
+            &mut state, 
+            self.keyboard_handle.as_ref().map(|_| &mut kb_state), 
+            self.mouse_handle.as_ref().map(|_| &mut self.mouse_state), 
+            &self.gamepad, 
+            cfg, 
+            deadzone, 
+            &self.pre_parsed_kb_mapping,
+            &mut self.is_gyro_active
+        );
         
         if state != self.last_xbox_state {
             if let Err(e) = viiper.set_xbox360_state(self.dev_handle, state) {

@@ -1,14 +1,17 @@
 use sdl3::gamepad::{Gamepad, Axis, Button};
-use crate::viiper_bridge::{Xbox360DeviceState, KeyboardDeviceState};
+use crate::viiper_bridge::{Xbox360DeviceState, KeyboardDeviceState, MouseDeviceState};
 use crate::config::{Config, XboxButton};
+use crate::keys::Action;
 
 pub fn update_from_sdl_gamepad(
     istate: &mut Xbox360DeviceState,
     mut kb_state: Option<&mut KeyboardDeviceState>,
+    mut mouse_state: Option<&mut MouseDeviceState>,
     gp: &Gamepad,
     cfg: &Config,
     deadzone: i16,
-    pre_parsed_kb_mapping: &std::collections::HashMap<String, u8>,
+    pre_parsed_kb_mapping: &std::collections::HashMap<String, Action>,
+    gyro_active: &mut bool,
 ) {
     let mut b: u32 = 0;
 
@@ -17,12 +20,25 @@ pub fn update_from_sdl_gamepad(
     let mut set_opt = |pressed: bool, target: Option<XboxButton>, phys_name: &str| {
         if !pressed { return; }
 
-        if let Some(&keycode) = pre_parsed_kb_mapping.get(phys_name) {
-            if let Some(kb) = kb_state.as_mut() {
-                let idx = keycode as usize;
-                if idx < 256 {
-                    kb.key_bitmap[idx / 8] |= 1 << (idx % 8);
+        if let Some(&action) = pre_parsed_kb_mapping.get(phys_name) {
+            match action {
+                Action::Keyboard(keycode) => {
+                    if let Some(kb) = kb_state.as_mut() {
+                        let idx = keycode as usize;
+                        if idx < 256 {
+                            kb.key_bitmap[idx / 8] |= 1 << (idx % 8);
+                        }
+                    }
                 }
+                Action::Mouse(btn) => {
+                    if let Some(mouse) = mouse_state.as_mut() {
+                        mouse.buttons |= btn;
+                    }
+                }
+                Action::Gyro => {
+                    *gyro_active = true;
+                }
+                Action::None => {}
             }
             return; // EXCLUSIVE MAPPING: Do not pass to XInput!
         }
@@ -67,8 +83,39 @@ pub fn update_from_sdl_gamepad(
     istate.buttons = b;
 
     // Triggers
-    let lt_raw = gp.axis(Axis::TriggerLeft).max(0);
-    let rt_raw = gp.axis(Axis::TriggerRight).max(0);
+    let mut lt_raw = gp.axis(Axis::TriggerLeft).max(0);
+    let mut rt_raw = gp.axis(Axis::TriggerRight).max(0);
+
+    let mut check_trigger_mapping = |val: &mut i16, phys_name: &str| {
+        if let Some(&action) = pre_parsed_kb_mapping.get(phys_name) {
+            let pressed = *val > 16384;
+            if pressed {
+                match action {
+                    Action::Keyboard(keycode) => {
+                        if let Some(kb) = kb_state.as_mut() {
+                            let idx = keycode as usize;
+                            if idx < 256 {
+                                kb.key_bitmap[idx / 8] |= 1 << (idx % 8);
+                            }
+                        }
+                    }
+                    Action::Mouse(btn) => {
+                        if let Some(mouse) = mouse_state.as_mut() {
+                            mouse.buttons |= btn;
+                        }
+                    }
+                    Action::Gyro => {
+                        *gyro_active = true;
+                    }
+                    Action::None => {}
+                }
+            }
+            *val = 0; // EXCLUSIVE MAPPING: Do not pass to XInput!
+        }
+    };
+    check_trigger_mapping(&mut lt_raw, "left_trigger");
+    check_trigger_mapping(&mut rt_raw, "right_trigger");
+
     let (lt_raw, rt_raw) = if cfg.axes.swap_triggers { (rt_raw, lt_raw) } else { (lt_raw, rt_raw) };
     istate.lt = ((lt_raw as i32 * 255) / 32767).clamp(0, 255) as u8;
     istate.rt = ((rt_raw as i32 * 255) / 32767).clamp(0, 255) as u8;

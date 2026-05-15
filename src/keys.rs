@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 pub enum Action {
     Mouse(u8),
     Keyboard(u8),
+    Gyro,
     None,
 }
 
@@ -13,6 +14,9 @@ impl Action {
         let n = name.trim().to_lowercase();
         if n.is_empty() || n == "none" {
             return Action::None;
+        }
+        if n == "gyro" || n == "gyro_activate" {
+            return Action::Gyro;
         }
         if let Some(btn) = get_mouse_button(&n) {
             Action::Mouse(btn)

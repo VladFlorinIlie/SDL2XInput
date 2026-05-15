@@ -79,9 +79,21 @@
 # for it to register as a "tap-and-drag" gesture.
 # drag_tap_time_ms = 400
 
-# ─── Virtual Keyboard & Exclusive Routing ─────────────────────────────────────
-# Map PHYSICAL gamepad buttons to Virtual Keyboard keys.
-# Inputs routed to the keyboard are "exclusive" - they are consumed and WILL NOT
+# ─── Gyro Settings ───
+# Allow using the gamepad's gyroscope (if present) to move the virtual mouse.
+# gyro_enabled = false
+
+# Sensitivity multipliers for the gyro X (yaw/turn) and Y (pitch/tilt) axes.
+# gyro_sensitivity_x = 1.0
+# gyro_sensitivity_y = 1.0
+
+# Invert gyro axes
+# gyro_invert_x = false
+# gyro_invert_y = false
+
+# ─── Virtual Keyboard & Mouse Exclusive Routing ─────────────────────────────────
+# Map PHYSICAL gamepad buttons to Virtual Keyboard keys or Virtual Mouse clicks.
+# Inputs routed here are "exclusive" - they are consumed and WILL NOT
 # be sent to the Virtual Xbox Controller (XInput), preventing double-inputs in games!
 #
 # Valid targets include strings like: "Space", "Enter", "Escape", "Tab", "Shift", 
@@ -91,12 +103,12 @@
 # Force spawn the keyboard even if no mappings are defined (default: false)
 # enabled = false
 
-[keyboard.mapping]
+[mapping]
 # ── Example: Map the Guide button to Escape, and the 'A' button to Space ──
 # guide = "Escape"
 # south = "Space"
 
-# ── Example: Map back paddles and extra buttons to keyboard / mouse inputs ──
-# left_paddle1 = "shift"
-# right_paddle1 = "mouseleft"
-# misc1 = "enter"
+# ── Example: Map back paddles and extra buttons to keyboard / mouse / gyro ──
+# left_paddle1 = "gyro"       # Hold to activate gyro mouse
+# right_paddle1 = "mouseleft" # Left click
+# misc1 = "enter"             # Enter key

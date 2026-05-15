@@ -112,6 +112,13 @@ impl App {
                             session.handle_touchpad_up(touchpad, finger, &self.config);
                         }
                     }
+                    sdl3::event::Event::ControllerSensorUpdated { which, sensor, data, timestamp, .. } => {
+                        if sensor == sdl3::sensor::SensorType::Gyroscope {
+                            if let Some(session) = self.active_sessions.get_mut(&which) {
+                                session.handle_gyro_motion([data[0], data[1], data[2]], timestamp, &self.config);
+                            }
+                        }
+                    }
                     sdl3::event::Event::ControllerButtonDown { which, button, .. } => {
                         if button == sdl3::gamepad::Button::Touchpad {
                             if let Some(session) = self.active_sessions.get_mut(&which) {
@@ -165,6 +172,19 @@ impl App {
         match self.gamepad_subsystem.open(jid) {
             Ok(gp) => {
                 tracing::info!("Opened physical gamepad: {}", gp.name().unwrap_or_else(|| "unknown".to_string()));
+                
+                if self.config.mouse.gyro_enabled {
+                    unsafe {
+                        if gp.has_sensor(sdl3::sensor::SensorType::Gyroscope) {
+                            if let Err(e) = gp.sensor_set_enabled(sdl3::sensor::SensorType::Gyroscope, true) {
+                                tracing::warn!("Failed to enable gyro: {}", e);
+                            } else {
+                                tracing::info!("Gyroscope enabled for gamepad ID {}", which);
+                            }
+                        }
+                    }
+                }
+
                 match self.viiper_manager.create_virtual_xbox_controller() {
                     Ok((dev_handle, bus_id, rumble_rx)) => {
                         self.active_sessions.insert(which, ActiveSession::new(gp, dev_handle, bus_id, rumble_rx, &self.viiper_manager, &self.config));
