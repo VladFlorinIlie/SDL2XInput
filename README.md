@@ -79,3 +79,7 @@ cargo build --release
 ## Credits
 
 This project wouldn't exist without [InputFusion](https://github.com/xan105/InputFusion) (for the mapping logic) and [SISR](https://github.com/Alia5/SISR) / [VIIPER](https://github.com/Alia5/VIIPER) (for the virtual USB driver approach). 
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the [LICENSE](LICENSE) file for more details.
