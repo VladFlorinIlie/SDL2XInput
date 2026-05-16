@@ -340,10 +340,13 @@ impl ActiveSession {
         kb_state.key_bitmap = self.keyboard_state.key_bitmap;
         self.is_gyro_active = !self.has_gyro_mapping; // Reset to default each tick, mapping.rs will set it to true if mapped button is pressed
 
+        // Create a temporary mouse state that combines persistent state (touchpad) and current frame state
+        let mut temp_mouse_state = self.mouse_state;
+
         crate::mapping::update_from_sdl_gamepad(
             &mut state, 
             self.keyboard_handle.as_ref().map(|_| &mut kb_state), 
-            self.mouse_handle.as_ref().map(|_| &mut self.mouse_state), 
+            self.mouse_handle.as_ref().map(|_| &mut temp_mouse_state), 
             &self.gamepad, 
             cfg, 
             deadzone, 
@@ -359,17 +362,17 @@ impl ActiveSession {
         }
 
         if let Some(mh) = self.mouse_handle {
-            let has_movement = self.mouse_state.dx != 0 || self.mouse_state.dy != 0 || self.mouse_state.wheel != 0 || self.mouse_state.pan != 0;
-            let buttons_changed = self.mouse_state.buttons != self.last_mouse_buttons;
+            let has_movement = temp_mouse_state.dx != 0 || temp_mouse_state.dy != 0 || temp_mouse_state.wheel != 0 || temp_mouse_state.pan != 0;
+            let buttons_changed = temp_mouse_state.buttons != self.last_mouse_buttons;
             
             if has_movement || buttons_changed {
-                if let Err(e) = viiper.set_mouse_state(mh, self.mouse_state) {
+                if let Err(e) = viiper.set_mouse_state(mh, temp_mouse_state) {
                     tracing::error!("Error sending mouse state: {}", e);
                 }
-                self.last_mouse_buttons = self.mouse_state.buttons;
+                self.last_mouse_buttons = temp_mouse_state.buttons;
             }
 
-            // Mouse deltas are consumed each poll cycle, so we reset them
+            // Mouse deltas are consumed each poll cycle, so we reset them on the persistent state!
             self.mouse_state.dx = 0;
             self.mouse_state.dy = 0;
             self.mouse_state.wheel = 0;
