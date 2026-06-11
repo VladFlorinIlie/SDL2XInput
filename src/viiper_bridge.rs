@@ -16,7 +16,7 @@ pub type USBServerHandle = usize;
 pub type Xbox360DeviceHandle = usize;
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Xbox360DeviceState {
     pub buttons: u32,
     pub lt: u8,
@@ -26,6 +26,35 @@ pub struct Xbox360DeviceState {
     pub rx: i16,
     pub ry: i16,
     pub reserved: [u8; 6],
+}
+
+pub type MouseDeviceHandle = usize;
+pub type KeyboardDeviceHandle = usize;
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub struct MouseDeviceState {
+    pub buttons: u8,
+    pub dx: i16,
+    pub dy: i16,
+    pub wheel: i16,
+    pub pan: i16,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct KeyboardDeviceState {
+    pub modifiers: u8,
+    pub key_bitmap: [u8; 32],
+}
+
+impl Default for KeyboardDeviceState {
+    fn default() -> Self {
+        Self {
+            modifiers: 0,
+            key_bitmap: [0; 32],
+        }
+    }
 }
 
 type ViiperLogCallback   = Option<unsafe extern "C" fn(i32, *const std::ffi::c_char)>;
@@ -40,6 +69,14 @@ unsafe extern "C" {
     fn SetXbox360DeviceState(handle: Xbox360DeviceHandle, state: Xbox360DeviceState) -> u8;
     fn SetXbox360RumbleCallback(handle: Xbox360DeviceHandle, cb: Xbox360RumbleCallback) -> u8;
     fn RemoveXbox360Device(handle: Xbox360DeviceHandle) -> u8;
+
+    fn CreateMouseDevice(serverHandle: USBServerHandle, outDeviceHandle: *mut MouseDeviceHandle, busID: u32, autoAttachLocalhost: u8, idVendor: u16, idProduct: u16) -> u8;
+    fn SetMouseDeviceState(handle: MouseDeviceHandle, state: MouseDeviceState) -> u8;
+    fn RemoveMouseDevice(handle: MouseDeviceHandle) -> u8;
+
+    fn CreateKeyboardDevice(serverHandle: USBServerHandle, outDeviceHandle: *mut KeyboardDeviceHandle, busID: u32, autoAttachLocalhost: u8, idVendor: u16, idProduct: u16) -> u8;
+    fn SetKeyboardDeviceState(handle: KeyboardDeviceHandle, state: KeyboardDeviceState) -> u8;
+    fn RemoveKeyboardDevice(handle: KeyboardDeviceHandle) -> u8;
 }
 
 // --- Callbacks ---
@@ -79,14 +116,15 @@ pub struct ViiperManager {
 }
 
 impl ViiperManager {
-    pub fn connect(addr: Option<&str>) -> Result<Self> {
+    pub fn connect(addr: Option<&str>, polling_rate: u32) -> Result<Self> {
+        let flush_interval = (1_000 / polling_rate.max(1)) as u32;
         unsafe {
             let c_addr = addr.map(|s| std::ffi::CString::new(s).ok()).flatten();
             let config = USBServerConfig {
                 addr: c_addr.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
                 connection_timeout_ms: 30_000,
                 device_handler_connect_timeout_ms: 5_000,
-                write_batch_flush_interval_ms: 1,
+                write_batch_flush_interval_ms: flush_interval.max(1),
             };
             let mut server_handle = 0;
             if NewUSBServer(&config, &mut server_handle, Some(viiper_logger)) == 0 {
@@ -137,6 +175,52 @@ impl ViiperManager {
             }
         }
         Ok(())
+    }
+
+    pub fn create_virtual_mouse(&self, bus_id: u32) -> Result<MouseDeviceHandle> {
+        unsafe {
+            let mut handle = 0;
+            if CreateMouseDevice(self.server_handle, &mut handle, bus_id, 1, 0, 0) == 0 {
+                bail!("Failed to create virtual mouse");
+            }
+            Ok(handle)
+        }
+    }
+
+    pub fn set_mouse_state(&self, handle: MouseDeviceHandle, state: MouseDeviceState) -> Result<()> {
+        unsafe {
+            if SetMouseDeviceState(handle, state) == 0 {
+                bail!("Failed to set mouse state");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn remove_virtual_mouse(&self, handle: MouseDeviceHandle) {
+        unsafe { RemoveMouseDevice(handle); }
+    }
+
+    pub fn create_virtual_keyboard(&self, bus_id: u32) -> Result<KeyboardDeviceHandle> {
+        unsafe {
+            let mut handle = 0;
+            if CreateKeyboardDevice(self.server_handle, &mut handle, bus_id, 1, 0, 0) == 0 {
+                bail!("Failed to create virtual keyboard");
+            }
+            Ok(handle)
+        }
+    }
+
+    pub fn set_keyboard_state(&self, handle: KeyboardDeviceHandle, state: KeyboardDeviceState) -> Result<()> {
+        unsafe {
+            if SetKeyboardDeviceState(handle, state) == 0 {
+                bail!("Failed to set keyboard state");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn remove_virtual_keyboard(&self, handle: KeyboardDeviceHandle) {
+        unsafe { RemoveKeyboardDevice(handle); }
     }
 }
 

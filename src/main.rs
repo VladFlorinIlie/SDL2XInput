@@ -3,6 +3,7 @@ mod config;
 mod mapping;
 mod viiper_bridge;
 mod session;
+pub mod keys;
 
 use anyhow::Result;
 use clap::Parser;

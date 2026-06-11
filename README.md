@@ -3,50 +3,72 @@
   <img src="assets/icon.png" width="48" align="top" alt="Logo" />
 </h1>
 
-A lightweight, high-performance standalone Rust application that bridges SDL3-compatible controllers (such as the Steam Controller) to virtual Xbox 360 controllers system-wide using the [VIIPER library](https://github.com/Alia5/VIIPER) to communicate with the USBIP server.
+A small, standalone Windows tool that makes any SDL3-compatible controller (Steam Controller, DualSense, Switch Pro, etc.) act like a standard Xbox 360 controller system-wide.
 
-## Origins & Credits
+## What it does
 
-This project is a standalone mix of two open-source projects:
-* **[InputFusion](https://github.com/xan105/InputFusion)**: The project uses the mapping logic from `xan105` to translate inputs into standard XInput behavior.
-* **[SISR](https://github.com/Alia5/SISR)** (Steam Input System-Wide Redirector): The project uses the approach from `Alia5` of using the [VIIPER](https://github.com/Alia5/VIIPER) library to spawn a virtual gamepad at the USB driver level.
+A lot of controllers don't work well outside of Steam because they lack native XInput support. SDL2XInput solves this. It reads your physical controller and creates a virtual Xbox 360 controller directly at the Windows driver level.
 
-By combining these concepts into a native SDL3 application that embeds `libviiper`, the project removes the need to run an external server process or have Steam running in the background.
-
-## How it Works
-
-Many modern controllers (especially the Steam Controller or generic HID controllers) do not natively support XInput, making them incompatible with many games outside of Steam's ecosystem. 
-
-**SDL2XInput** solves this natively:
-1. It reads the physical controller using **SDL3**.
-2. It translates the inputs (buttons, analog triggers, axes) into XInput format.
-3. It uses the **VIIPER library** (statically embedded) to communicate with the Windows USBIP bus and spawn a system-wide Virtual Xbox 360 controller.
+It can also act as a virtual mouse and keyboard, letting you map buttons to keys or use your controller's touchpad and gyro to move the cursor.
 
 ## Features
 
-* **Integrated VIIPER Library**: Uses `libviiper` to handle USBIP communications directly. No external server process required.
-* **No Custom Drivers**: Uses the native Windows `xusb22.sys` driver via USBIP. No `ViGEmBus` required.
-* **Rumble Support**: Supports bidirectional rumble pass-through from the virtual controller back to the physical hardware.
-* **Button Remapping**: Supports custom button layouts and axis inversions via a TOML configuration file.
-* **System Tray Integration**: Can run in the background. If launched via double-click, it detaches from the console and stays in the Windows system tray.
-* **Logging**: Writes logs to `sdl2xinput.log` when running in the background, or to the console if launched from a terminal.
-* **Adjustable Polling Rate**: Configurable polling frequency (1-1000 Hz) to balance latency and CPU usage.
-* **Device Filtering**: Supports custom VID:PID blocklists to ignore specific hardware. By default, **all Xbox 360 controllers are ignored**. This is because the virtual controllers spawned by the application are recognized as Xbox 360 controllers, and the application must ignore them to prevent reading its own output and creating an infinite input loop.
-* **Multi-Controller Support**: Creates a 1-to-1 virtual controller for every physical controller connected.
+- **No bloat**: Doesn't require Steam or background servers.
+- **No ViGEmBus**: Uses native Windows drivers via USBIP.
+- **Mouse & Keyboard**: Map any controller button to a keyboard key or mouse click.
+- **Touchpad & Gyro**: Full support for using them as a mouse.
+- **Rumble**: Haptic feedback passes through perfectly (for supported controllers).
+- **Customizable**: Swap buttons, tweak deadzones, and invert axes via a simple config file.
 
-> [!NOTE]
-> **A Note on Rumble Compatibility:** Rumble pass-through relies entirely on SDL3's driver implementation. Official controllers like the **PlayStation 5 (DualSense)** and the **Steam Controller** benefit massively from this application and will rumble flawlessly. However, rumble can be finicky on some third-party generic controllers (e.g., Flydigi controllers in Nintendo Switch Mode). These devices often spoof official Hardware IDs but lack the actual proprietary hardware (like Nintendo's HD Rumble Linear Resonant Actuators) required to decode the specific packets SDL3 sends. If your third-party controller does not vibrate, it is recommended to switch it to PC/XInput mode instead.
+## Requirements
 
-## Prerequisites
+**The only thing you need to install** is the [usbip-win2](https://github.com/vadimgrn/usbip-win2) driver. This is what allows the app to spawn the virtual controllers.
 
-### For Building from Source
-* **Rust & Cargo**: To compile the source code.
-* **Go**: Required to compile the embedded VIIPER components.
-* **GCC Toolchain (MinGW-w64)**: Required for the Rust compiler to link the C and Go components on Windows.
+## How to use it
 
-## Installation & Build
+1. Install [usbip-win2](https://github.com/vadimgrn/usbip-win2).
+2. Download `sdl2xinput.exe` (or build it yourself).
+3. Double-click the `.exe`.
 
-Clone the repository and build the optimized standalone executable:
+That's it. It will sit in your system tray and do its thing. To close it, just right-click the tray icon. Logs are saved to `sdl2xinput.log` if you need to troubleshoot.
+
+## Configuration (Optional)
+
+If you want to change button mappings, tweak mouse sensitivity, or map buttons to keyboard keys, create a `config.toml` next to the `.exe`. 
+
+Here is a quick example:
+
+```toml
+[buttons]
+# Swap A and B (Nintendo style)
+south = "b"
+east  = "a"
+
+[mouse]
+enabled = true
+sensitivity = 1.5
+
+[mapping]
+# Make the Guide button press 'Escape' on your keyboard
+guide = "Escape"
+# Hold a back paddle to turn on gyro aiming
+left_paddle1 = "gyro"
+```
+
+*For more advanced options (polling rates, device filtering, deadzones), run `sdl2xinput.exe --help` from your terminal.*
+
+## The "Double Input" Problem
+
+Windows will now see *two* controllers: your real one, and the virtual Xbox 360 one. Some games will read both at the same time, causing double inputs. 
+
+**The fix:** Install [HidHide](https://github.com/nefarius/HidHide) and set it up to hide your real controller from everything *except* `sdl2xinput.exe`. 
+
+## Building from source
+
+If you want to compile the project yourself, you'll need:
+* Rust & Cargo
+* Go (for the embedded VIIPER components)
+* GCC Toolchain (MinGW-w64 on Windows)
 
 ```bash
 git clone --recurse-submodules https://github.com/VladFlorinIlie/sdl2xinput.git
@@ -54,63 +76,10 @@ cd sdl2xinput
 cargo build --release
 ```
 
-The standalone executable will be located at `target/release/sdl2xinput.exe`. It is fully self-contained and requires no external DLLs or server processes.
+## Credits
 
-## Usage
-
-Simply launch the redirector. It will automatically initialize the **VIIPER library** and begin forwarding inputs.
-
-**Running in the Background:**
-Double-click the `sdl2xinput.exe` file from Windows Explorer. The console will hide, and an icon will appear in the system tray. Right-click the tray icon to exit the application. Logs will be written to `sdl2xinput.log` in the same directory.
-
-**Running from Terminal:**
-```powershell
-.\sdl2xinput.exe
-```
-When launched from a terminal, the application will print logs directly to the console and can be terminated with `Ctrl+C`.
-
-### Configuration (Button Remapping)
-
-The project supports comprehensive button remapping through a `config.toml` file. If the file is not provided, a default identity mapping is used.
-
-Example `config.toml` (Nintendo-style layout):
-```toml
-[buttons]
-south = "b"
-east  = "a"
-west  = "y"
-north = "x"
-
-[axes]
-swap_triggers = false
-invert_left_y = false
-```
-
-### Command Line Arguments
-
-The redirector can be configured using CLI arguments. Use `--help` to see all options:
-
-* `-c, --config <FILE>`: Path to a TOML config file for button remapping and axis tweaks.
-* `-p, --polling-rate <HZ>`: Input polling rate (1-1000 Hz). Higher values lower latency but use more CPU (Default: `250`).
-* `--usb-server-addr <ADDRESS>`: The IP address and Port for the USBIP server (e.g. `127.0.0.1:3241`). Defaults to the system default if not provided.
-* `-m, --max-controllers <NUMBER>`: Limit the maximum number of active virtual controllers (Default: `1`).
-* `-d, --deadzone <INT>`: Hardware deadzone applied to analog sticks to eliminate micro-jitter (Default: `1000`). Set to `0` to disable completely.
-* `--filter-device <VID:PID>`: Block a specific device by VID:PID (hex, e.g. `045E:028E`). Can be repeated.
-* `--empty-device-filter`: Disables the default Xbox 360 controller blocklist. 
-* `--no-tray`: Force the application to skip creating a system tray icon.
-
-> [!WARNING]
-> Use `--empty-device-filter` *only* if you are using a physical Xbox 360 controller and have another method (like HidHide) to hide the virtual controller from the application to prevent infinite loops.
-
-## The "Double Input" Problem
-
-> [!NOTE]
-> Because the application acts as a standalone bridge, Windows will natively see **two** controllers: the physical controller and the Virtual Xbox 360 Controller.
-
-If a game reads all connected devices, it will register "Double Input". To fix this without `.dll` hooking, there are two solutions:
-
-1. **System-wide Solution (Recommended)**: Install [HidHide](https://github.com/nefarius/HidHide) and configure it to hide the physical controller from all applications *except* `sdl2xinput.exe`.
-2. **For SDL Games**: Add the `SDL_GAMECONTROLLER_IGNORE_DEVICES` environment variable to the game's launch options with the physical controller's Vendor ID and Product ID.
+This project wouldn't exist without [InputFusion](https://github.com/xan105/InputFusion) (for the mapping logic) and [SISR](https://github.com/Alia5/SISR) / [VIIPER](https://github.com/Alia5/VIIPER) (for the virtual USB driver approach). 
 
 ## License
-GPLv3 License
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the [LICENSE](LICENSE) file for more details.
