@@ -12,6 +12,9 @@
 #   left_stick, right_stick               → stick clicks
 #   left_shoulder, right_shoulder         → bumpers
 #   dpad_up, dpad_down, dpad_left, dpad_right
+#   left_paddle1, right_paddle1, left_paddle2, right_paddle2 → back paddles
+#   misc1, misc2, misc3, misc4, misc5, misc6                 → extra buttons
+#   touchpad                                                 → touchpad button
 #
 # Valid virtual Xbox 360 targets (right side):
 #   a, b, x, y
@@ -46,3 +49,66 @@
 
 # Swap left and right triggers
 # swap_triggers  = false
+
+# ─── Virtual Mouse (Touchpad) ─────────────────────────────────────────────────
+# Requires a physical controller with a touchpad (e.g. DualSense, Steam Controller).
+# Controls the virtual mouse cursor.
+[mouse]
+# Enable or disable the virtual mouse entirely (default: true)
+# enabled = true
+
+# Cursor movement sensitivity scalar (default: 1.5)
+# sensitivity = 1.5
+
+# Action triggered by a "soft touch" tap gesture (touch & release within 250ms).
+# touchpad_soft_action = "MouseLeft"
+
+# Action triggered by a "hard press" (clicking the mechanical switch under the pad).
+# touchpad_hard_action = "MouseRight"
+
+# ─── Advanced Touchpad Settings ───
+# Maximum allowed finger movement distance (squared) to still register as a tap.
+# If your finger rolls or jitters too much when tapping, increase this value.
+# Default: 0.005 (approx 7% of the touchpad)
+# tap_distance_threshold = 0.005
+
+# Maximum time (in milliseconds) a touch can last to be considered a quick tap.
+# tap_time_ms = 350
+
+# Maximum time (in milliseconds) allowed between a tap and a subsequent touch-and-hold
+# for it to register as a "tap-and-drag" gesture.
+# drag_tap_time_ms = 400
+
+# ─── Gyro Settings ───
+# Allow using the gamepad's gyroscope (if present) to move the virtual mouse.
+# gyro_enabled = false
+
+# Sensitivity multipliers for the gyro X (yaw/turn) and Y (pitch/tilt) axes.
+# gyro_sensitivity_x = 1.0
+# gyro_sensitivity_y = 1.0
+
+# Invert gyro axes
+# gyro_invert_x = false
+# gyro_invert_y = false
+
+# ─── Virtual Keyboard & Mouse Exclusive Routing ─────────────────────────────────
+# Map PHYSICAL gamepad buttons to Virtual Keyboard keys or Virtual Mouse clicks.
+# Inputs routed here are "exclusive" - they are consumed and WILL NOT
+# be sent to the Virtual Xbox Controller (XInput), preventing double-inputs in games!
+#
+# Valid targets include strings like: "Space", "Enter", "Escape", "Tab", "Shift", 
+# "A", "B", "1", "2", "F1", "ArrowUp", "MouseLeft", "MouseRight", etc.
+
+[keyboard]
+# Force spawn the keyboard even if no mappings are defined (default: false)
+# enabled = false
+
+[mapping]
+# ── Example: Map the Guide button to Escape, and the 'A' button to Space ──
+# guide = "Escape"
+# south = "Space"
+
+# ── Example: Map back paddles and extra buttons to keyboard / mouse / gyro ──
+# left_paddle1 = "gyro"       # Hold to activate gyro mouse
+# right_paddle1 = "mouseleft" # Left click
+# misc1 = "enter"             # Enter key

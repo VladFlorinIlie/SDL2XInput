@@ -8,6 +8,9 @@ use anyhow::Result;
 pub struct Config {
     pub buttons: ButtonRemap,
     pub axes: AxisConfig,
+    pub mouse: MouseConfig,
+    pub keyboard: KeyboardConfig,
+    pub mapping: std::collections::HashMap<String, String>,
 }
 
 /// Remaps each physical SDL3 button to a virtual Xbox 360 button.
@@ -46,6 +49,18 @@ pub struct ButtonRemap {
     pub dpad_down:      XboxButton,
     pub dpad_left:      XboxButton,
     pub dpad_right:     XboxButton,
+    // Extra / Paddles
+    pub left_paddle1:   Option<XboxButton>,
+    pub right_paddle1:  Option<XboxButton>,
+    pub left_paddle2:   Option<XboxButton>,
+    pub right_paddle2:  Option<XboxButton>,
+    pub misc1:          Option<XboxButton>,
+    pub misc2:          Option<XboxButton>,
+    pub misc3:          Option<XboxButton>,
+    pub misc4:          Option<XboxButton>,
+    pub misc5:          Option<XboxButton>,
+    pub misc6:          Option<XboxButton>,
+    pub touchpad:       Option<XboxButton>,
 }
 
 impl Default for ButtonRemap {
@@ -67,6 +82,17 @@ impl Default for ButtonRemap {
             dpad_down:      XboxButton::DPadDown,
             dpad_left:      XboxButton::DPadLeft,
             dpad_right:     XboxButton::DPadRight,
+            left_paddle1:   None,
+            right_paddle1:  None,
+            left_paddle2:   None,
+            right_paddle2:  None,
+            misc1:          None,
+            misc2:          None,
+            misc3:          None,
+            misc4:          None,
+            misc5:          None,
+            misc6:          None,
+            touchpad:       None,
         }
     }
 }
@@ -87,8 +113,54 @@ pub struct AxisConfig {
     pub swap_triggers:  bool,
 }
 
+/// Mouse emulation using touchpads or gyro.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct MouseConfig {
+    pub enabled: bool,
+    pub sensitivity: f32,
+    pub touchpad_soft_action: String,
+    pub touchpad_hard_action: String,
+    pub tap_distance_threshold: f32,
+    pub tap_time_ms: u128,
+    pub drag_tap_time_ms: u128,
+    
+    // Gyro settings
+    pub gyro_enabled: bool,
+    pub gyro_sensitivity_x: f32,
+    pub gyro_sensitivity_y: f32,
+    pub gyro_invert_x: bool,
+    pub gyro_invert_y: bool,
+}
+
+impl Default for MouseConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            sensitivity: 1.5,
+            touchpad_soft_action: "MouseLeft".to_string(),
+            touchpad_hard_action: "MouseRight".to_string(),
+            tap_distance_threshold: 0.005,
+            tap_time_ms: 350,
+            drag_tap_time_ms: 200,
+            gyro_enabled: false,
+            gyro_sensitivity_x: 1.0,
+            gyro_sensitivity_y: 1.0,
+            gyro_invert_x: false,
+            gyro_invert_y: false,
+        }
+    }
+}
+
+/// Keyboard emulation mapping physical buttons to keys.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct KeyboardConfig {
+    pub enabled: bool,
+}
+
 /// All valid Xbox 360 button targets that a physical button can be remapped to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum XboxButton {
     A, B, X, Y,
@@ -99,12 +171,23 @@ pub enum XboxButton {
 }
 
 impl Config {
-    /// Load config from a TOML file. Returns `Config::default()` if the path is None.
+    /// Load config from a TOML file.
+    /// Priority: explicit --config path > config.toml next to the executable > built-in defaults.
     pub fn load(path: Option<&Path>) -> Result<Self> {
-        match path {
-            None => Ok(Self::default()),
+        let resolved = path.map(|p| p.to_path_buf()).or_else(|| {
+            std::env::current_exe().ok().and_then(|exe| {
+                let candidate = exe.with_file_name("config.toml");
+                if candidate.exists() { Some(candidate) } else { None }
+            })
+        });
+
+        match resolved {
+            None => {
+                tracing::info!("No config file found, using built-in defaults.");
+                Ok(Self::default())
+            }
             Some(p) => {
-                let raw = std::fs::read_to_string(p)?;
+                let raw = std::fs::read_to_string(&p)?;
                 let cfg: Config = toml::from_str(&raw)?;
                 tracing::info!("Loaded config from: {}", p.display());
                 Ok(cfg)
