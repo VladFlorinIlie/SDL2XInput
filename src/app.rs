@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use anyhow::Result;
 use sdl3::GamepadSubsystem;
-use sdl3::sys::joystick::SDL_JoystickID;
+use sdl3::joystick::JoystickId;
 use sdl3::EventPump;
 use tray_item::{IconSource, TrayItem};
 
@@ -27,7 +27,7 @@ pub struct App {
     gamepad_subsystem: GamepadSubsystem,
     event_pump: EventPump,
     viiper_manager: ViiperManager,
-    active_sessions: HashMap<u32, ActiveSession>,
+    active_sessions: HashMap<JoystickId, ActiveSession>,
     quit_flag: Arc<AtomicBool>,
     _tray: Option<TrayItem>,
 }
@@ -95,38 +95,38 @@ impl App {
 
             while let Some(event) = self.event_pump.poll_event() {
                 match event {
-                    sdl3::event::Event::ControllerDeviceAdded   { which, .. } => self.handle_device_added(which),
-                    sdl3::event::Event::ControllerDeviceRemoved { which, .. } => self.handle_device_removed(which),
-                    sdl3::event::Event::ControllerTouchpadMotion { which, touchpad, finger, x, y, .. } => {
+                    sdl3::event::Event::GamepadAdded   { which, .. } => self.handle_device_added(which),
+                    sdl3::event::Event::GamepadRemoved { which, .. } => self.handle_device_removed(which),
+                    sdl3::event::Event::GamepadTouchpadMotion { which, touchpad, finger, x, y, .. } => {
                         if let Some(session) = self.active_sessions.get_mut(&which) {
                             session.handle_touchpad_motion(touchpad, finger, x, y, &self.config);
                         }
                     }
-                    sdl3::event::Event::ControllerTouchpadDown { which, touchpad, finger, x, y, .. } => {
+                    sdl3::event::Event::GamepadTouchpadDown { which, touchpad, finger, x, y, .. } => {
                         if let Some(session) = self.active_sessions.get_mut(&which) {
                             session.handle_touchpad_down(touchpad, finger, x, y, &self.config);
                         }
                     }
-                    sdl3::event::Event::ControllerTouchpadUp { which, touchpad, finger, .. } => {
+                    sdl3::event::Event::GamepadTouchpadUp { which, touchpad, finger, .. } => {
                         if let Some(session) = self.active_sessions.get_mut(&which) {
                             session.handle_touchpad_up(touchpad, finger, &self.config);
                         }
                     }
-                    sdl3::event::Event::ControllerSensorUpdated { which, sensor, data, timestamp, .. } => {
+                    sdl3::event::Event::GamepadSensorUpdated { which, sensor, data, timestamp, .. } => {
                         if sensor == sdl3::sensor::SensorType::Gyroscope {
                             if let Some(session) = self.active_sessions.get_mut(&which) {
                                 session.handle_gyro_motion([data[0], data[1], data[2]], timestamp, &self.config);
                             }
                         }
                     }
-                    sdl3::event::Event::ControllerButtonDown { which, button, .. } => {
+                    sdl3::event::Event::GamepadButtonDown { which, button, .. } => {
                         if button == sdl3::gamepad::Button::Touchpad {
                             if let Some(session) = self.active_sessions.get_mut(&which) {
                                 session.handle_touchpad_button(true, &self.config);
                             }
                         }
                     }
-                    sdl3::event::Event::ControllerButtonUp { which, button, .. } => {
+                    sdl3::event::Event::GamepadButtonUp { which, button, .. } => {
                         if button == sdl3::gamepad::Button::Touchpad {
                             if let Some(session) = self.active_sessions.get_mut(&which) {
                                 session.handle_touchpad_button(false, &self.config);
@@ -146,20 +146,19 @@ impl App {
         }
     }
 
-    fn handle_device_added(&mut self, which: u32) {
-        let jid = SDL_JoystickID(which);
-        let vid = self.gamepad_subsystem.vendor_for_id(jid).unwrap_or(0);
-        let pid = self.gamepad_subsystem.product_for_id(jid).unwrap_or(0);
+    fn handle_device_added(&mut self, which: JoystickId) {
+        let vid = self.gamepad_subsystem.vendor_for_id(which).unwrap_or(0);
+        let pid = self.gamepad_subsystem.product_for_id(which).unwrap_or(0);
 
         if self.blocked_devices.contains(&(vid, pid)) {
-            let name = self.gamepad_subsystem.name_for_id(jid).unwrap_or_else(|_| "unknown".to_string());
+            let name = self.gamepad_subsystem.name_for_id(which).unwrap_or_else(|_| "unknown".to_string());
             tracing::info!("Ignoring filtered device ({:04X}:{:04X}) - {}", vid, pid, name);
             return;
         }
 
         if self.active_sessions.len() >= self.args.max_controllers {
             tracing::info!(
-                "Ignoring additional controller (limit {} reached): ID {} ({:04X}:{:04X})",
+                "Ignoring additional controller (limit {} reached): ID {:?} ({:04X}:{:04X})",
                 self.args.max_controllers, which, vid, pid
             );
             return;
@@ -169,7 +168,7 @@ impl App {
             return;
         }
 
-        match self.gamepad_subsystem.open(jid) {
+        match self.gamepad_subsystem.open(which) {
             Ok(gp) => {
                 tracing::info!("Opened physical gamepad: {}", gp.name().unwrap_or_else(|| "unknown".to_string()));
                 
@@ -179,7 +178,7 @@ impl App {
                             if let Err(e) = gp.sensor_set_enabled(sdl3::sensor::SensorType::Gyroscope, true) {
                                 tracing::warn!("Failed to enable gyro: {}", e);
                             } else {
-                                tracing::info!("Gyroscope enabled for gamepad ID {}", which);
+                                tracing::info!("Gyroscope enabled for gamepad ID {:?}", which);
                             }
                         }
                     }
@@ -196,10 +195,10 @@ impl App {
         }
     }
 
-    fn handle_device_removed(&mut self, which: u32) {
+    fn handle_device_removed(&mut self, which: JoystickId) {
         if let Some(mut session) = self.active_sessions.remove(&which) {
             session.destroy(&self.viiper_manager);
-            tracing::info!("Gamepad removed: ID {}", which);
+            tracing::info!("Gamepad removed: ID {:?}", which);
         }
     }
 
